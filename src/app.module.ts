@@ -1,25 +1,14 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UserModule } from './user/user.module'; 
+import { UserModule } from './user/user.module';
+import { RestaurantModule } from './restaurant/restaurant.module';
+import { ReservationModule } from './reservation/reservation.module';
+import { ReviewModule } from './review/review.module';
+import { PrismaModule } from './prisma/prisma.module'; 
 
 @Module({
-  imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'tu_usuario_sql',
-      password: 'tu_password_sql',
-      database: 'restaurant_db',
-      autoLoadEntities: true, 
-      synchronize: true,
-    }),
-    MongooseModule.forRoot('mongodb://localhost/reviews_db'),
-    UserModule, 
-  ],
+  imports: [UserModule, RestaurantModule, ReservationModule, ReviewModule, PrismaModule],
   controllers: [AppController],
   providers: [AppService],
 })
