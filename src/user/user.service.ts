@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service'; 
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto, UserRole } from './dto/create-user.dto'; 
+import { LoginUserDto } from './dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -58,5 +59,25 @@ export class UserService {
 
   remove(id: string) {
     return this.prisma.user.delete({ where: { id } });
+  }
+
+   async login(dto: LoginUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.password, user.password);
+    if (!passwordValid) {
+      throw new Error('Contraseña incorrecta');
+    }
+
+    return {
+      token: 'fake-jwt-token', 
+      role: user.role,
+    };
   }
 }

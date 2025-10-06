@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, Patch, UseGuards  } from '@
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { LoginUserDto } from './dto/login-user.dto';
 import { Roles, Role } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 
@@ -12,6 +13,11 @@ export class UserController {
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);
+  }
+
+  @Post('login')
+  async login(@Body() dto: LoginUserDto) {
+    return this.userService.login(dto);
   }
 
   @Get()
