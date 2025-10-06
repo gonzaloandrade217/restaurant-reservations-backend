@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsPhoneNumber } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -9,10 +9,11 @@ export class CreateRestaurantDto {
   @IsNotEmpty()
   address: string;
 
-  @IsString()
+  @IsPhoneNumber('ES') 
   @IsNotEmpty()
   phone: string;
 
   @IsString()
-  description: string;
+  @IsOptional()
+  description?: string;
 }

@@ -40,6 +40,10 @@ export class UserService {
 
     return user;
   }
+
+  async findOneByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
   
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
