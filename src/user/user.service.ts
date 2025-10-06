@@ -1,25 +1,51 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service'; 
-import { CreateUserDto } from './dto/create-user.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'prisma/prisma.service'; 
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserDto, UserRole } from './dto/create-user.dto'; 
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  create(createUserDto: CreateUserDto) {
-    return this.prisma.user.create({ data: createUserDto });
+  async create(createUserDto: CreateUserDto) {
+    const { name, email, password, role } = createUserDto;
+
+    const hashedPassword = await bcrypt.hash(password, 10); 
+
+    const finalRole = role === UserRole.ADMIN
+                         ? 'ADMIN' 
+                         : 'USER';
+
+    return this.prisma.user.create({
+      data: {
+        name: name,
+        email: email,
+        password: hashedPassword, 
+        role: finalRole as 'ADMIN' | 'USER', 
+      },
+    });
   }
 
   findAll() {
     return this.prisma.user.findMany();
   }
 
-  findOne(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
+  async findOne(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    return user;
   }
   
   async update(id: string, updateUserDto: UpdateUserDto) {
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+    
     return this.prisma.user.update({
       where: { id },
       data: updateUserDto,
