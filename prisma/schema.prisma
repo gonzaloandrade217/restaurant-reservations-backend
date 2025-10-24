@@ -28,6 +28,7 @@ model Restaurant {
   name         String
   address      String
   phone        String
+  capacity     Int
   description  String?
   
   reservations Reservation[]

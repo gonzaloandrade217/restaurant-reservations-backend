@@ -1,28 +1,28 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { RestaurantService } from './restaurant.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
-import { UpdateRestaurantDto } from './dto/update-restaurant.dto'; 
-import { RolesGuard } from '../auth/roles.guard'; 
+import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/roles.guard';
 import { Roles, Role } from '../auth/roles.decorator';
-import { AuthGuard } from '@nestjs/passport';  
 
 @Controller('restaurants')
 export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
-  // RUTAS PROTEGIDAS: Requiere rol ADMIN
+  // RUTAS PROTEGIDAS: solo admin puede crear, actualizar y eliminar
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard) 
-  @Roles(Role.ADMIN) 
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
   create(@Body() createRestaurantDto: CreateRestaurantDto) {
     return this.restaurantService.create(createRestaurantDto);
   }
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN) 
+  @Roles(Role.ADMIN)
   update(@Param('id') id: string, @Body() updateRestaurantDto: UpdateRestaurantDto) {
-    return this.restaurantService.update(id, updateRestaurantDto); 
+    return this.restaurantService.update(id, updateRestaurantDto);
   }
 
   @Delete(':id')
@@ -32,7 +32,7 @@ export class RestaurantController {
     return this.restaurantService.remove(id);
   }
 
-  // RUTAS PÚBLICAS
+  // RUTAS PÚBLICAS 
   @Get()
   findAll() {
     return this.restaurantService.findAll();
