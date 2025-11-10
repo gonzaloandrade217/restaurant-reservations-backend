@@ -30,4 +30,14 @@ export class RestaurantService {
   async remove(id: string) {
     return this.prisma.restaurant.delete({ where: { id } });
   }
+
+  async findTables(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      include: { tables: true }, 
+    });
+
+    if (!restaurant) throw new NotFoundException('Restaurante no encontrado');
+    return restaurant.tables;
+  }
 }

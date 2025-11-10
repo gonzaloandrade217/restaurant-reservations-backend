@@ -1,14 +1,20 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
-import { ReservationService } from './reservation.service';
-import { CreateReservationDto } from './dto/create-reservation.dto';
+import { Controller, Post, Body, Get, Param, Delete } from "@nestjs/common";
+import { CreateReservationDto } from "./dto/create-reservation.dto";
+import { ReservationService } from "./reservation.service";
 
-@Controller('reservations')
+@Controller("reservations")
 export class ReservationController {
   constructor(private readonly reservationService: ReservationService) {}
 
   @Post()
-  create(@Body() createReservationDto: CreateReservationDto) {
-    return this.reservationService.create(createReservationDto);
+  create(@Body() dto: CreateReservationDto) {
+    console.log("DTO recibido:", dto);
+
+    if (!dto.userId) {
+      throw new Error("Falta userId en la reserva");
+    }
+
+    return this.reservationService.create(dto, dto.userId);
   }
 
   @Get()
@@ -16,13 +22,13 @@ export class ReservationController {
     return this.reservationService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
+  @Get(":id")
+  findOne(@Param("id") id: string) {
     return this.reservationService.findOne(id);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
+  @Delete(":id")
+  remove(@Param("id") id: string) {
     return this.reservationService.remove(id);
   }
 }

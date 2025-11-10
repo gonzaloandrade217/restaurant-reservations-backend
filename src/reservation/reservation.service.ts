@@ -7,12 +7,42 @@ import { UpdateReservationDto } from './dto/update-reservation.dto';
 export class ReservationService {
   constructor(private prisma: PrismaService) {}
 
-  create(createReservationDto: CreateReservationDto) {
-    return this.prisma.reservation.create({ data: createReservationDto });
+  async create(dto: CreateReservationDto, userId: string) {
+    const date = new Date(dto.date);
+    if (isNaN(date.getTime())) throw new Error('Fecha inválida');
+
+    const data: any = {
+      date,
+      partySize: dto.partySize,
+      user: { connect: { id: userId } },
+      restaurant: { connect: { id: dto.restaurantId } },
+    };
+
+    if (dto.tableId) {
+      data.table = { connect: { id: dto.tableId } };
+    }
+
+    return this.prisma.reservation.create({
+      data,
+      include: {
+        user: true,
+        restaurant: true,
+        table: true,
+      },
+    });
   }
 
   findAll() {
-    return this.prisma.reservation.findMany();
+    return this.prisma.reservation.findMany({
+      include: { user: true, restaurant: true },
+    });
+  }
+
+  async findAllByUser(userId: string) {
+    return this.prisma.reservation.findMany({
+      where: { userId },
+      include: { restaurant: true },
+    });
   }
 
   async findOne(id: string) {

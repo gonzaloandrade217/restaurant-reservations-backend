@@ -42,4 +42,9 @@ export class RestaurantController {
   findOne(@Param('id') id: string) {
     return this.restaurantService.findOne(id);
   }
+
+  @Get(':id/tables')
+  async findTables(@Param('id') id: string) {
+    return this.restaurantService.findTables(id);
+  }
 }
