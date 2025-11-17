@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Body, 
+  Patch, 
+  Param, 
+  Delete, 
+  UseGuards, 
+  Req 
+} from '@nestjs/common';
 import { RestaurantService } from './restaurant.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
@@ -10,14 +20,16 @@ import { Roles, Role } from '../auth/roles.decorator';
 export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
-  // RUTAS PROTEGIDAS: solo admin puede crear, actualizar y eliminar
+  // 🟩 SOLO ADMIN: crear restaurante
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  create(@Body() createRestaurantDto: CreateRestaurantDto) {
-    return this.restaurantService.create(createRestaurantDto);
+  create(@Req() req, @Body() createRestaurantDto: CreateRestaurantDto) {
+    const adminId = req.user.id; // obtenemos el ID del admin desde el token
+    return this.restaurantService.create(createRestaurantDto, adminId);
   }
 
+  // 🟩 SOLO ADMIN: actualizar restaurante
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -25,6 +37,7 @@ export class RestaurantController {
     return this.restaurantService.update(id, updateRestaurantDto);
   }
 
+  // 🟩 SOLO ADMIN: eliminar restaurante
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -32,7 +45,7 @@ export class RestaurantController {
     return this.restaurantService.remove(id);
   }
 
-  // RUTAS PÚBLICAS 
+  // 🟦 RUTAS PÚBLICAS
   @Get()
   findAll() {
     return this.restaurantService.findAll();
