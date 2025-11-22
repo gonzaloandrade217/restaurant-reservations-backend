@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateUserDto, UserRole } from './dto/create-user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleUserDto } from './dto/google-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { Role, User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -13,28 +15,63 @@ export class UserService {
     private jwtService: JwtService,
   ) {}
 
-  async create(createUserDto: CreateUserDto) {
+  // ----------------------------------
+  // CREATE NORMAL USER
+  // ----------------------------------
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const { name, email, password, role } = createUserDto;
-    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const finalRole = role === UserRole.ADMIN ? 'ADMIN' : 'USER';
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
-    return this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: finalRole as 'ADMIN' | 'USER',
-      },
-    });
+    try {
+      return await this.prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword || '',
+          role: role ?? Role.USER,
+        },
+      });
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('El email ya está en uso');
+      }
+      throw error;
+    }
   }
 
+  // ----------------------------------
+  // CREATE GOOGLE USER
+  // ----------------------------------
+  async createGoogleUser(data: GoogleUserDto & { role?: Role }) {
+    try {
+      return await this.prisma.user.create({
+        data: {
+          email: data.email,
+          name: data.name,
+          password: '',
+          role: data.role ?? Role.USER,
+          ...(data.avatar ? { avatar: data.avatar } : {}),
+        },
+      });
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Este correo ya está registrado en otra cuenta');
+      }
+      throw error;
+    }
+  }
+
+  // ----------------------------------
+  // FINDS
+  // ----------------------------------
   findAll() {
     return this.prisma.user.findMany();
   }
 
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
+
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
@@ -45,6 +82,9 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  // ----------------------------------
+  // UPDATE
+  // ----------------------------------
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
@@ -56,35 +96,36 @@ export class UserService {
     });
   }
 
+  // ----------------------------------
+  // DELETE
+  // ----------------------------------
   remove(id: string) {
     return this.prisma.user.delete({ where: { id } });
   }
 
+  // ----------------------------------
+  // LOGIN NORMAL
+  // ----------------------------------
   async login(dto: LoginUserDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
 
-    if (!user) {
-      throw new Error('Usuario no encontrado');
-    }
+    if (!user) throw new BadRequestException('Usuario no encontrado');
 
-    const passwordValid = await bcrypt.compare(dto.password, user.password);
-    if (!passwordValid) {
-      throw new Error('Contraseña incorrecta');
-    }
+    const passwordValid = await bcrypt.compare(dto.password, user.password || '');
+    if (!passwordValid) throw new BadRequestException('Contraseña incorrecta');
 
     const payload = { sub: user.id, email: user.email, role: user.role };
-    const access_token = this.jwtService.sign(payload);
 
     return {
-      access_token, 
+      access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     };
   }
 }
