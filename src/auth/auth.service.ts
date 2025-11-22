@@ -1,15 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UserService } from '../user/user.service';
-import { OAuth2Client } from 'google-auth-library';
+import admin from '../firebase-admin';
 import { GoogleUserDto } from 'src/user/dto/google-user.dto';
-import { UserRole } from 'src/user/dto/create-user.dto'; // tu tipo de roles
+import { Role } from '@prisma/client'; 
 
 @Injectable()
 export class AuthService {
-  private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
@@ -38,52 +36,52 @@ export class AuthService {
   }
 
   // ----------------------------
-  // LOGIN CON GOOGLE
+  // LOGIN CON GOOGLE (FIREBASE)
   // ----------------------------
-  async loginWithGoogle(idToken: string, isAdmin?: boolean) {
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+  async loginWithGoogle(idToken: string, role?: string) {
+    try {
+      if (!idToken) throw new BadRequestException('No se envió idToken');
 
-    const payload = ticket.getPayload();
-    if (!payload) throw new UnauthorizedException('Token inválido');
+      // 1) Verifica token de Google usando Firebase Admin
+      const decoded = await admin.auth().verifyIdToken(idToken);
 
-    const email = payload.email;
-    const name = payload.name ?? 'Usuario Google';
-    const picture = payload.picture ?? undefined;
+      const email = decoded.email;
+      const name = decoded.name ?? decoded.email?.split('@')[0] ?? 'Usuario Google';
+      const picture = decoded.picture ?? undefined;
 
-    if (!email) throw new UnauthorizedException('Google no devolvió email');
+      if (!email) throw new UnauthorizedException('El token no contiene email');
 
-    // Buscar usuario existente
-    let user = await this.userService.findOneByEmail(email);
+      // 2) Busca si el usuario ya existe
+      let user = await this.userService.findOneByEmail(email);
 
-    const desiredRole: UserRole = isAdmin ? UserRole.ADMIN : UserRole.USER;
+      // 3) Determinar rol 
+      const desiredRole: Role =
+        role === 'ADMIN'
+          ? Role.ADMIN
+          : Role.USER;
 
-    // Tipo intermedio para evitar errores de TS
-    type GoogleUserInput = {
-      email: string;
-      name: string;
-      avatar?: string;
-      role: UserRole;
-    };
+      // 4) Crear usuario si no existe
+      if (!user) {
+        const googleUser: GoogleUserDto = {
+          email,
+          name,
+          avatar: picture,
+          role: desiredRole,
+        };
 
-    if (!user) {
-      // Crear usuario Google
-      const googleUser: GoogleUserInput = {
-        email,
-        name,
-        avatar: picture,
-        role: desiredRole,
-      };
-      user = await this.userService.createGoogleUser(googleUser as GoogleUserDto & { role: UserRole });
-    } else {
-      // Actualizar rol si es diferente
-      if (user.role !== desiredRole) {
+        user = await this.userService.createGoogleUser(googleUser);
+      }
+
+      // 5) Si existe pero el rol cambió, actualizar
+      else if (user.role !== desiredRole) {
         user = await this.userService.update(user.id, { role: desiredRole });
       }
-    }
 
-    return this.login(user);
+      // 6) Devolver JWT
+      return this.login(user);
+    } catch (err) {
+      console.error('Error loginWithGoogle:', err);
+      throw new UnauthorizedException('No se pudo validar el token de Google');
+    }
   }
 }

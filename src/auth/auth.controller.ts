@@ -19,10 +19,13 @@ export class AuthController {
   }
 
   // ----------------------------
-  // LOGIN CON GOOGLE
+  // LOGIN CON GOOGLE (FIREBASE)
   // ----------------------------
   @Post('google')
-  async googleLogin(@Body('idToken') idToken: string) {
-    return this.authService.loginWithGoogle(idToken);
+  async googleLogin(
+    @Body('idToken') idToken: string,
+    @Body('role') role?: string, 
+  ) {
+    return this.authService.loginWithGoogle(idToken, role);
   }
 }
