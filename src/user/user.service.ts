@@ -15,9 +15,7 @@ export class UserService {
     private jwtService: JwtService,
   ) {}
 
-  // ----------------------------------
   // CREATE NORMAL USER
-  // ----------------------------------
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { name, email, password, role } = createUserDto;
 
@@ -40,9 +38,7 @@ export class UserService {
     }
   }
 
-  // ----------------------------------
   // CREATE GOOGLE USER
-  // ----------------------------------
   async createGoogleUser(data: GoogleUserDto & { role?: Role }) {
     try {
       return await this.prisma.user.create({
@@ -62,9 +58,7 @@ export class UserService {
     }
   }
 
-  // ----------------------------------
   // FINDS
-  // ----------------------------------
   findAll() {
     return this.prisma.user.findMany();
   }
@@ -82,9 +76,7 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  // ----------------------------------
   // UPDATE
-  // ----------------------------------
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
@@ -96,16 +88,26 @@ export class UserService {
     });
   }
 
-  // ----------------------------------
   // DELETE
-  // ----------------------------------
-  remove(id: string) {
-    return this.prisma.user.delete({ where: { id } });
+  async remove(id: string) {
+    try {
+      await this.prisma.reservation.deleteMany({
+        where: { userId: id },
+      });
+
+      const deletedUser = await this.prisma.user.delete({
+        where: { id },
+      });
+
+      return deletedUser;
+    } catch (error) {
+      throw new Error(
+        "No se pudo eliminar el usuario. Asegúrate de que exista y de que no haya problemas con las reservas."
+      );
+    }
   }
 
-  // ----------------------------------
   // LOGIN NORMAL
-  // ----------------------------------
   async login(dto: LoginUserDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },

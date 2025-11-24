@@ -83,6 +83,15 @@ export class ReservationController {
     return this.reservationService.findByUser(userId);
   }
 
+  @Get("admin/accepted/:adminId")
+  async getAccepted(@Param("adminId") adminId: string) {
+    if (!adminId || adminId === "null") {
+      throw new BadRequestException("adminId inválido");
+    }
+    return this.reservationService.findAcceptedByAdmin(adminId);
+  }
+
+
 
   // Aceptar reserva
   @Patch(":id/accept")

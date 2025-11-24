@@ -38,7 +38,6 @@ export class ReservationService {
       include: { user: true, restaurant: true, table: true },
     });
 
-    // mapear partySize -> people para concordar con el frontend
     return res.map(r => ({
       ...r,
       people: r.partySize,
@@ -73,25 +72,19 @@ export class ReservationService {
     };
   }
 
-  // Trae todas las reservas pendientes de los restaurantes de un admin
   async findPendingByAdmin(adminId: string) {
     console.log(" ADMIN ID recibido:", adminId);
 
-    // Buscar restaurantes del admin
     const restaurants = await this.prisma.restaurant.findMany({
       where: { adminId },
     });
 
     console.log(" Restaurantes del admin:", restaurants.map(r => r.name));
 
-    if (restaurants.length === 0) {
-      console.log(" El admin no tiene restaurantes asignados");
-      return [];
-    }
+    if (restaurants.length === 0) return [];
 
     const restaurantIds = restaurants.map(r => r.id);
 
-    // Buscar reservas pendientes de esos restaurantes
     const reservations = await this.prisma.reservation.findMany({
       where: {
         status: 'PENDING',
@@ -106,7 +99,6 @@ export class ReservationService {
 
     console.log(" Reservas pendientes encontradas:", reservations.length);
 
-    // Calcular capacidad disponible para cada reserva
     const results = await Promise.all(
       reservations.map(async (res) => {
         const availableCapacity = await this.getAvailableCapacity(
@@ -130,11 +122,7 @@ export class ReservationService {
   async findByUserAndStatus(userId: string, status: "ACCEPTED" | "REJECTED") {
     const res = await this.prisma.reservation.findMany({
       where: { userId, status },
-      include: {
-        restaurant: true,
-        user: true,
-        table: true,
-      },
+      include: { restaurant: true, user: true, table: true },
     });
 
     return res.map(r => ({
@@ -155,18 +143,44 @@ export class ReservationService {
     }));
   }
 
-  // Calcula la capacidad disponible para una fecha en un restaurante
+  async findAcceptedByAdmin(adminId: string) {
+    // 1. Traigo los restaurantes del admin
+    const restaurants = await this.prisma.restaurant.findMany({
+      where: { adminId },
+    });
+
+    if (restaurants.length === 0) return [];
+
+    const restaurantIds = restaurants.map(r => r.id);
+
+    // 2. Traigo reservas ACCEPTED de esos restaurantes
+    const reservations = await this.prisma.reservation.findMany({
+      where: {
+        status: 'ACCEPTED',
+        restaurantId: { in: restaurantIds },
+      },
+      include: {
+        user: true,
+        restaurant: true,
+        table: true,
+      },
+    });
+
+    return reservations.map(r => ({
+      ...r,
+      people: r.partySize,
+    }));
+  }
+
+
   async getAvailableCapacity(restaurantId: string, date: Date) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
     });
 
-    if (!restaurant) {
-      console.warn(` Restaurante con ID ${restaurantId} no encontrado`);
-      return 0;
-    }
+    if (!restaurant) return 0;
 
-    const acceptedReservations = await this.prisma.reservation.findMany({
+    const accepted = await this.prisma.reservation.findMany({
       where: {
         restaurantId,
         date,
@@ -174,10 +188,7 @@ export class ReservationService {
       },
     });
 
-    const usedCapacity = acceptedReservations.reduce(
-      (sum, r) => sum + r.partySize,
-      0,
-    );
+    const usedCapacity = accepted.reduce((sum, r) => sum + r.partySize, 0);
 
     return restaurant.capacity - usedCapacity;
   }
@@ -189,7 +200,33 @@ export class ReservationService {
     });
   }
 
-  // Cambiar estado de reserva (aceptar/rechazar)
+  private async assignTableOrCombine(restaurantId: string, partySize: number) {
+    const tables = await this.prisma.table.findMany({
+      where: { restaurantId },
+      orderBy: { capacity: 'asc' },
+    });
+
+    // Caso 1: NO hay mesas -> usar capacidad total como 1 mesa gigante 
+    if (tables.length === 0) {
+      return null; 
+    }
+
+    // Caso 2: Hay una sola mesa suficiente 
+    const single = tables.find(t => t.capacity >= partySize);
+    if (single) return single;
+
+    // Caso 3: Intentar juntar mesas 
+    let sum = 0;
+    for (const t of tables) {
+      sum += t.capacity;
+      if (sum >= partySize) {
+        return t; // devuelve la última mesa usada
+      }
+    }
+
+    return null; // ni juntas alcanzan
+  }
+
   async updateStatus(id: string, status: 'ACCEPTED' | 'REJECTED') {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
@@ -203,25 +240,36 @@ export class ReservationService {
       throw new Error('La reserva ya fue procesada');
     }
 
-    // Si se acepta, asignar mesa automáticamente
     if (status === 'ACCEPTED') {
-      const table = await this.prisma.table.findFirst({
-        where: {
-          restaurantId: reservation.restaurantId,
-          capacity: { gte: reservation.partySize },
-        },
-        orderBy: { capacity: 'asc' },
-      });
+      const assigned = await this.assignTableOrCombine(
+        reservation.restaurantId,
+        reservation.partySize
+      );
 
-      if (!table) {
-        throw new Error('No hay mesas disponibles para esta reserva');
+      if (!assigned) {
+        // Si no hay mesas pero sí capacidad total → aceptar igual sin tableId
+        const restaurant = await this.prisma.restaurant.findUnique({
+          where: { id: reservation.restaurantId },
+        });
+
+        if (restaurant && restaurant.capacity >= reservation.partySize) {
+          const updated = await this.prisma.reservation.update({
+            where: { id },
+            data: { status, tableId: null },
+            include: { user: true, restaurant: true, table: true },
+          });
+
+          return { ...updated, people: updated.partySize };
+        }
+
+        throw new Error('No hay mesas suficientes para esta reserva');
       }
 
       const updated = await this.prisma.reservation.update({
         where: { id },
         data: {
           status,
-          tableId: table.id,
+          tableId: assigned.id ?? null,
         },
         include: { user: true, restaurant: true, table: true },
       });
@@ -229,7 +277,6 @@ export class ReservationService {
       return { ...updated, people: updated.partySize };
     }
 
-    // Si se rechaza
     const updated = await this.prisma.reservation.update({
       where: { id },
       data: { status },

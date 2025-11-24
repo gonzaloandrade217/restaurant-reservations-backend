@@ -20,16 +20,18 @@ import { Roles, Role } from '../auth/roles.decorator';
 export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
-  // 🟩 SOLO ADMIN: crear restaurante
+  // SOLO ADMIN: crear restaurante
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   create(@Req() req, @Body() createRestaurantDto: CreateRestaurantDto) {
-    const adminId = req.user.id; // obtenemos el ID del admin desde el token
+    const adminId = req.user.id; 
+    createRestaurantDto.capacity = Number(createRestaurantDto.capacity);
+    createRestaurantDto.cantidadMesas = Number(createRestaurantDto.cantidadMesas);
     return this.restaurantService.create(createRestaurantDto, adminId);
   }
 
-  // 🟩 SOLO ADMIN: actualizar restaurante
+  // SOLO ADMIN: actualizar restaurante
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -37,7 +39,7 @@ export class RestaurantController {
     return this.restaurantService.update(id, updateRestaurantDto);
   }
 
-  // 🟩 SOLO ADMIN: eliminar restaurante
+  // SOLO ADMIN: eliminar restaurante
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -45,7 +47,7 @@ export class RestaurantController {
     return this.restaurantService.remove(id);
   }
 
-  // 🟦 RUTAS PÚBLICAS
+  // RUTAS PÚBLICAS
   @Get()
   findAll() {
     return this.restaurantService.findAll();

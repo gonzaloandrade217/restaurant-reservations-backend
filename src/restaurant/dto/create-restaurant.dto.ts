@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsPhoneNumber, IsNumber } from 'class-validator';
+import { 
+  IsString, 
+  IsNotEmpty, 
+  IsOptional, 
+  IsNumber, 
+  Min 
+} from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -9,13 +15,17 @@ export class CreateRestaurantDto {
   @IsNotEmpty()
   address: string;
 
-  @IsString()              
-  @IsNotEmpty()            
+  @IsString()
+  @IsNotEmpty()
   phone: string;
 
   @IsNumber()
-  @IsNotEmpty()
+  @Min(1, { message: 'La capacidad total debe ser mayor a 0' })
   capacity: number;
+
+  @IsNumber()
+  @Min(1, { message: 'La cantidad de mesas debe ser mayor o igual a 1' })
+  cantidadMesas: number;
 
   @IsString()
   @IsOptional()
