@@ -91,8 +91,6 @@ export class ReservationController {
     return this.reservationService.findAcceptedByAdmin(adminId);
   }
 
-
-
   // Aceptar reserva
   @Patch(":id/accept")
   async accept(@Param("id") id: string) {
