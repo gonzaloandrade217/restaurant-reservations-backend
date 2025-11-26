@@ -84,6 +84,19 @@ export class RestaurantService {
 
   // DELETE
   async remove(id: string) {
+    // Primero borro reviews del restaurante
+    await this.prisma.review.deleteMany({
+      where: { restaurantId: id },
+    });
+    // Despues borro reservas 
+    await this.prisma.reservation.deleteMany({
+        where: { restaurantId: id },
+    });
+    // Despues borro mesas 
+    await this.prisma.table.deleteMany({
+        where: { restaurantId: id },
+    });
+    // Y por ultimo borro el restaurante
     return this.prisma.restaurant.delete({
       where: { id },
     });
