@@ -76,6 +76,19 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async getUsersWithReservations() {
+    return this.prisma.user.findMany({
+      where: {
+        reservations: {
+          some: {},   // Usuario con al menos 1 reserva
+        },
+      },
+      include: {
+        reservations: true,  
+      },
+    });
+  }
+
   // UPDATE
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {

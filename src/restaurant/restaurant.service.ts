@@ -22,19 +22,21 @@ export class RestaurantService {
       throw new BadRequestException('La cantidad de mesas debe ser mayor o igual a 1');
     }
 
-    // Determinar capacidad por mesa (redondeo hacia abajo)
+    // Determinar capacidad por mesa
     const capacidadPorMesa = Math.floor(capacity / cantidadMesas);
     if (capacidadPorMesa < 1) {
-      throw new BadRequestException('La capacidad por mesa es demasiado baja. Aumentá la capacidad total o disminuí la cantidad de mesas.');
+      throw new BadRequestException(
+        'La capacidad por mesa es demasiado baja. Aumentá la capacidad total o disminuí la cantidad de mesas.'
+      );
     }
 
-    // Preparar array de mesas a crear
+    // Crear mesas
     const tablesToCreate = Array.from({ length: cantidadMesas }).map((_, idx) => ({
       number: idx + 1,
       capacity: capacidadPorMesa,
     }));
 
-    // Crear restaurante + mesas en una sola transacción Prisma
+    // Crear restaurante + mesas
     const restaurant = await this.prisma.restaurant.create({
       data: {
         name,
@@ -73,8 +75,11 @@ export class RestaurantService {
     return restaurant;
   }
 
-  // UPDATE RESTAURANTE (no toca mesas por defecto)
+  // UPDATE RESTAURANTE (no toca mesas)
   async update(id: string, updateRestaurantDto: UpdateRestaurantDto) {
+    // 👇 NECESARIO PARA QUE NO EXPLOTE Prisma
+    delete (updateRestaurantDto as any).tables;
+
     return this.prisma.restaurant.update({
       where: { id },
       data: updateRestaurantDto,
@@ -84,19 +89,18 @@ export class RestaurantService {
 
   // DELETE
   async remove(id: string) {
-    // Primero borro reviews del restaurante
     await this.prisma.review.deleteMany({
       where: { restaurantId: id },
     });
-    // Despues borro reservas 
+
     await this.prisma.reservation.deleteMany({
-        where: { restaurantId: id },
+      where: { restaurantId: id },
     });
-    // Despues borro mesas 
+
     await this.prisma.table.deleteMany({
-        where: { restaurantId: id },
+      where: { restaurantId: id },
     });
-    // Y por ultimo borro el restaurante
+
     return this.prisma.restaurant.delete({
       where: { id },
     });
@@ -113,7 +117,7 @@ export class RestaurantService {
     return restaurant.tables;
   }
 
-  // AGREGAR SILLAS (capacidad) A UNA MESA
+  // AGREGAR SILLAS A UNA MESA
   async addSeats(tableId: string, extraSeats: number) {
     const table = await this.prisma.table.findUnique({ where: { id: tableId } });
 
@@ -127,7 +131,7 @@ export class RestaurantService {
     });
   }
 
-  // JUNTAR MESAS (crea una mesa nueva y elimina las viejas)
+  // JUNTAR MESAS
   async mergeTables(tableIds: string[]) {
     if (tableIds.length < 2) {
       throw new BadRequestException('Se necesitan al menos 2 mesas para juntar.');
@@ -143,19 +147,16 @@ export class RestaurantService {
 
     const restaurantId = tables[0].restaurantId;
 
-    // Suma la capacidad total
     const newCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
 
-    // Crea la mesa unida
     const mergedTable = await this.prisma.table.create({
       data: {
-        number: Date.now() % 100000, 
+        number: Date.now() % 100000,
         capacity: newCapacity,
         restaurantId,
       },
     });
 
-    // Elimina las mesas anteriores
     await this.prisma.table.deleteMany({
       where: { id: { in: tableIds } },
     });

@@ -30,12 +30,17 @@ export class UserController {
     return this.userService.findAll();
   }
 
+  @Get('with-reservations')
+  getUsersWithReservations() {
+    return this.userService.getUsersWithReservations();
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard('jwt')) // usuario logueado puede ver info
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
-
+  
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
