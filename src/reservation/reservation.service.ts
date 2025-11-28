@@ -151,6 +151,25 @@ export class ReservationService {
     return { ...updated, people: updated.partySize };
   }
 
+  async cancel(id: string) {
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { id },
+    });
+
+    if (!reservation) throw new NotFoundException('Reserva no encontrada');
+    if (reservation.status !== 'ACCEPTED') {
+      throw new Error('Solo se pueden cancelar reservas aceptadas');
+    }
+
+    const updated = await this.prisma.reservation.update({
+      where: { id },
+      data: { status: 'REJECTED' },
+      include: { user: true, restaurant: true },
+    });
+
+    return { ...updated, people: updated.partySize };
+  }
+
   // Eliminar reserva
   async remove(id: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id } });
