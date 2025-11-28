@@ -12,13 +12,25 @@ enum Role {
   ADMIN
 }
 
+enum ReservationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum MesaTipo {
+  CUADRADA
+  RECTANGULAR
+  REDONDA
+}
+
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
-  password     String?       // ahora puede ser null → Google users
+  password     String?       // null si se logea con Google
   name         String
-  role         Role          @default(USER) 
-  avatar       String?       // opcional (solo si viene de Google)
+  role         Role          @default(USER)
+  avatar       String?
 
   reservations Reservation[]
   reviews      Review[]
@@ -30,27 +42,18 @@ model Restaurant {
   name          String
   address       String
   phone         String
-  capacity      Int
-  cantidadMesas Int           
   description   String?
 
+  mesaTipo      MesaTipo?                     
+  mesaCapacidad Int?                           
+  cantidadMesas Int?    
+  capacity      Int?                        
+
   reservations  Reservation[]
-  tables        Table[]
   reviews       Review[]
 
   adminId       String?
-  admin         User?         @relation("RestaurantAdmin", fields: [adminId], references: [id])
-}
-
-model Table {
-  id            String        @id @default(uuid())
-  number        Int
-  capacity      Int
-
-  restaurantId  String
-  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
-
-  reservations  Reservation[]
+  admin         User?        @relation("RestaurantAdmin", fields: [adminId], references: [id])
 }
 
 model Reservation {
@@ -59,20 +62,13 @@ model Reservation {
   partySize    Int
   status       ReservationStatus @default(PENDING)
 
+  exceptionDescription String?
+
   userId       String
   user         User              @relation(fields: [userId], references: [id])
 
   restaurantId String
   restaurant   Restaurant        @relation(fields: [restaurantId], references: [id])
-
-  tableId      String?
-  table        Table?            @relation(fields: [tableId], references: [id])
-}
-
-enum ReservationStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
 }
 
 model Review {

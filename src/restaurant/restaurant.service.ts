@@ -2,165 +2,99 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
+import { MesaTipo } from '@prisma/client';
 
 @Injectable()
 export class RestaurantService {
   constructor(private prisma: PrismaService) {}
 
-  // CREAR RESTAURANTE (crea mesas automáticamente)
+  // CREAR RESTAURANTE
   async create(createRestaurantDto: CreateRestaurantDto, adminId: string) {
-    const { name, address, phone, capacity, cantidadMesas, description } = createRestaurantDto;
+    const {
+      name,
+      address,
+      phone,
+      mesaTipo,
+      mesaCapacidad,
+      cantidadMesas,
+      capacity,
+      description
+    } = createRestaurantDto;
 
-    // Validaciones básicas
+    // Validaciones
     if (!name || !address || !phone) {
       throw new BadRequestException('Nombre, dirección y teléfono son obligatorios');
     }
-    if (!capacity || capacity <= 0) {
-      throw new BadRequestException('La capacidad total debe ser mayor a 0');
+    if (!mesaCapacidad || mesaCapacidad <= 0) {
+      throw new BadRequestException('La capacidad de cada mesa debe ser mayor a 0');
     }
     if (!cantidadMesas || cantidadMesas <= 0) {
       throw new BadRequestException('La cantidad de mesas debe ser mayor o igual a 1');
     }
-
-    // Determinar capacidad por mesa
-    const capacidadPorMesa = Math.floor(capacity / cantidadMesas);
-    if (capacidadPorMesa < 1) {
-      throw new BadRequestException(
-        'La capacidad por mesa es demasiado baja. Aumentá la capacidad total o disminuí la cantidad de mesas.'
-      );
+    if (!capacity || capacity <= 0) {
+      throw new BadRequestException('La capacidad total debe ser mayor a 0');
     }
 
-    // Crear mesas
-    const tablesToCreate = Array.from({ length: cantidadMesas }).map((_, idx) => ({
-      number: idx + 1,
-      capacity: capacidadPorMesa,
-    }));
+    // Convertir string a enum si existe
+    const mesaTipoEnum: MesaTipo | undefined = mesaTipo
+      ? MesaTipo[mesaTipo as keyof typeof MesaTipo]
+      : undefined;
 
-    // Crear restaurante + mesas
-    const restaurant = await this.prisma.restaurant.create({
-      data: {
-        name,
-        address,
-        phone,
-        capacity,
-        cantidadMesas,
-        description,
-        adminId,
-        tables: {
-          create: tablesToCreate,
-        },
-      },
-      include: { tables: true },
-    });
+    const data: any = {
+      name,
+      address,
+      phone,
+      mesaCapacidad,
+      cantidadMesas,
+      capacity,
+      description,
+      adminId,
+      mesaTipo: mesaTipoEnum ?? null, // siempre asigna
+    };
 
-    return restaurant;
+    return this.prisma.restaurant.create({ data });
   }
 
-  // GET TODOS 
-  findAll() {
-    return this.prisma.restaurant.findMany({ include: { tables: true } });
+  // OBTENER TODOS
+  async findAll() {
+    return this.prisma.restaurant.findMany();
   }
 
-  // GET UNO 
+  // OBTENER UNO
   async findOne(id: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id },
-      include: { tables: true },
-    });
-
-    if (!restaurant) {
-      throw new NotFoundException(`Restaurant with ID ${id} not found`);
-    }
-
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id } });
+    if (!restaurant) throw new NotFoundException(`Restaurant with ID ${id} not found`);
     return restaurant;
   }
 
-  // UPDATE RESTAURANTE (no toca mesas)
+  // ACTUALIZAR
   async update(id: string, updateRestaurantDto: UpdateRestaurantDto) {
-    // 👇 NECESARIO PARA QUE NO EXPLOTE Prisma
-    delete (updateRestaurantDto as any).tables;
+    const data: any = { ...updateRestaurantDto };
+
+    if (updateRestaurantDto.mesaTipo) {
+      data.mesaTipo = MesaTipo[updateRestaurantDto.mesaTipo as keyof typeof MesaTipo];
+    }
+
+    if (updateRestaurantDto.capacity !== undefined) {
+      data.capacity = Number(updateRestaurantDto.capacity);
+    }
+    if (updateRestaurantDto.mesaCapacidad !== undefined) {
+      data.mesaCapacidad = Number(updateRestaurantDto.mesaCapacidad);
+    }
+    if (updateRestaurantDto.cantidadMesas !== undefined) {
+      data.cantidadMesas = Number(updateRestaurantDto.cantidadMesas);
+    }
 
     return this.prisma.restaurant.update({
       where: { id },
-      data: updateRestaurantDto,
-      include: { tables: true },
+      data,
     });
   }
 
-  // DELETE
+  // ELIMINAR
   async remove(id: string) {
-    await this.prisma.review.deleteMany({
-      where: { restaurantId: id },
-    });
-
-    await this.prisma.reservation.deleteMany({
-      where: { restaurantId: id },
-    });
-
-    await this.prisma.table.deleteMany({
-      where: { restaurantId: id },
-    });
-
-    return this.prisma.restaurant.delete({
-      where: { id },
-    });
-  }
-
-  // GET MESAS DEL RESTAURANTE
-  async findTables(restaurantId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      include: { tables: true },
-    });
-
-    if (!restaurant) throw new NotFoundException('Restaurante no encontrado');
-    return restaurant.tables;
-  }
-
-  // AGREGAR SILLAS A UNA MESA
-  async addSeats(tableId: string, extraSeats: number) {
-    const table = await this.prisma.table.findUnique({ where: { id: tableId } });
-
-    if (!table) throw new NotFoundException('Mesa no encontrada');
-
-    return this.prisma.table.update({
-      where: { id: tableId },
-      data: {
-        capacity: table.capacity + extraSeats,
-      },
-    });
-  }
-
-  // JUNTAR MESAS
-  async mergeTables(tableIds: string[]) {
-    if (tableIds.length < 2) {
-      throw new BadRequestException('Se necesitan al menos 2 mesas para juntar.');
-    }
-
-    const tables = await this.prisma.table.findMany({
-      where: { id: { in: tableIds } },
-    });
-
-    if (tables.length !== tableIds.length) {
-      throw new NotFoundException('Alguna mesa no existe.');
-    }
-
-    const restaurantId = tables[0].restaurantId;
-
-    const newCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
-
-    const mergedTable = await this.prisma.table.create({
-      data: {
-        number: Date.now() % 100000,
-        capacity: newCapacity,
-        restaurantId,
-      },
-    });
-
-    await this.prisma.table.deleteMany({
-      where: { id: { in: tableIds } },
-    });
-
-    return mergedTable;
+    await this.prisma.review.deleteMany({ where: { restaurantId: id } });
+    await this.prisma.reservation.deleteMany({ where: { restaurantId: id } });
+    return this.prisma.restaurant.delete({ where: { id } });
   }
 }

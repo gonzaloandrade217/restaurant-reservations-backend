@@ -1,98 +1,207 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+README — Sistema de Reservas de Restaurantes
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend desarrollado con NestJS + Prisma + PostgreSQL
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+🧱 Tecnologías principales
 
-## Description
+NestJS — Framework backend modular y escalable
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Prisma ORM — Acceso a DB tipado y migraciones
 
-## Project setup
+PostgreSQL — Base de datos relacional
 
-```bash
-$ npm install
-```
+JWT + Passport — Autenticación segura
 
-## Compile and run the project
+BCrypt — Hash de contraseñas
 
-```bash
-# development
-$ npm run start
+class-validator — Validaciones de DTO
 
-# watch mode
-$ npm run start:dev
+Docker (opcional) — Contenedores para la app y la DB
 
-# production mode
-$ npm run start:prod
-```
+🏗️ Arquitectura general
 
-## Run tests
+El proyecto está dividido en módulos:
 
-```bash
-# unit tests
-$ npm run test
+/auth          → Registro, login, JWT, roles
+/user          → Gestión de usuarios
+/restaurant    → Restaurantes + mesas + administración
+/reservation   → Reservas y estados (pending, accepted, rejected)
+/review        → Reseñas de usuarios
+/prisma        → Cliente de Prisma + migraciones
 
-# e2e tests
-$ npm run test:e2e
 
-# test coverage
-$ npm run test:cov
-```
+Cada módulo contiene:
 
-## Deployment
+controller.ts (rutas)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+service.ts (lógica)
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+dto/ (validaciones)
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+🔐 Sistema de roles
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+El backend usa dos roles:
 
-## Resources
+Rol	Permisos
+USER	Crear reservas, ver restaurantes, revisar sus reservas
+ADMIN	Administrar restaurantes, aceptar/rechazar reservas
 
-Check out a few resources that may come in handy when working with NestJS:
+Validación vía:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN)
 
-## Support
+🧩 Modelo de datos (Prisma)
+🏢 Restaurant
+model Restaurant {
+  id            String     @id @default(uuid())
+  name          String
+  address       String
+  phone         String
+  description   String?
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+  mesaTipo      MesaTipo?
+  mesaCapacidad Int?
+  cantidadMesas Int?
 
-## Stay in touch
+  reservations  Reservation[]
+  reviews       Review[]
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+  adminId       String?
+  admin         User? @relation("RestaurantAdmin", fields: [adminId], references: [id])
+}
 
-## License
+🍽️ Mesas dentro del restaurante
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+No se modelan como tabla separada.
+El restaurante contiene:
+
+mesaTipo (enum: CUADRADA | RECTANGULAR | REDONDA)
+
+mesaCapacidad (int)
+
+cantidadMesas (int)
+
+🚀 Endpoints principales
+🔑 Auth
+Método	Ruta	Descripción
+POST	/auth/register	Registrar usuario
+POST	/auth/login	Login con JWT
+👤 Usuarios
+Método	Ruta	Descripción
+GET	/users/me	Información del usuario logueado
+GET	/users	Lista de usuarios (ADMIN)
+🏨 Restaurantes
+Crear restaurante (ADMIN)
+POST /restaurants
+Authorization: Bearer token
+
+
+Body:
+
+{
+  "name": "La Parrilla",
+  "address": "Calle 123",
+  "phone": "123456789",
+  "cantidadMesas": 10,
+  "mesaCapacidad": 4,
+  "mesaTipo": "CUADRADA",
+  "description": "Especialidad en carnes"
+}
+
+Actualizar restaurante (ADMIN)
+PATCH /restaurants/:id
+
+Eliminar restaurante (ADMIN)
+DELETE /restaurants/:id
+
+
+Elimina:
+
+Reviews
+
+Reservations
+
+Restaurant
+
+En ese orden.
+
+Obtener restaurantes (público)
+GET /restaurants
+
+Obtener un restaurante
+GET /restaurants/:id
+
+📅 Reservas
+Crear reserva (USER)
+POST /reservations
+
+Admin ver todas las reservas
+GET /reservations/admin
+
+Admin aceptar/rechazar reserva
+PATCH /reservations/:id/status
+
+
+Body:
+
+{
+  "status": "ACCEPTED"
+}
+
+⭐ Reviews
+Crear reseña
+POST /reviews
+
+🧪 Validaciones importantes
+DTO de restaurante
+
+mesaTipo → Enum (no string)
+
+mesaCapacidad → Número
+
+cantidadMesas → Número obligatorio
+
+name/address/phone → obligatorios
+
+Esto evita errores de Prisma con enums.
+
+🐛 Dificultades que se resolvieron
+✔ Error: enum no aceptado en update
+
+Solución: cambiar DTO para que mesaTipo sea del tipo MesaTipo.
+
+✔ Valores llegando como string desde el frontend
+
+Solución: casteo numérico en el controlador.
+
+✔ Reservas que no llegaban al admin
+
+Se ajustaron relaciones y filtros en el backend.
+
+✔ Migraciones inconsistentes
+
+Se limpiaron tablas y se regeneró el schema correctamente.
+
+🚧 Mejoras futuras
+
+Sistema real de mesas (tabla separada con disponibilidad por horario)
+
+Dashboard Admin con estadísticas
+
+Diferenciar horarios de reserva
+
+Manejo de overbooking
+
+Fotos de restaurantes
+
+Google Login mejorado
+
+📫 Contacto del desarrollador
+
+Gonzalo Andrade
+Estudiante de Tecnicatura en Programación Informática
+Universidad Nacional de Quilmes
+📧 gonzaloandrade217@gmail.com
+
+📍 General Belgrano, Buenos Aires, Argentina

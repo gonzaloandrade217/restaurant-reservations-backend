@@ -25,9 +25,14 @@ export class RestaurantController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   create(@Req() req, @Body() createRestaurantDto: CreateRestaurantDto) {
-    const adminId = req.user.id; 
-    createRestaurantDto.capacity = Number(createRestaurantDto.capacity);
+    const adminId = req.user.id;
+
+    // Conversión de números
     createRestaurantDto.cantidadMesas = Number(createRestaurantDto.cantidadMesas);
+    createRestaurantDto.mesaCapacidad = Number(createRestaurantDto.mesaCapacidad);
+    if (createRestaurantDto.capacity)
+      createRestaurantDto.capacity = Number(createRestaurantDto.capacity);
+
     return this.restaurantService.create(createRestaurantDto, adminId);
   }
 
@@ -36,6 +41,8 @@ export class RestaurantController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   update(@Param('id') id: string, @Body() updateRestaurantDto: UpdateRestaurantDto) {
+    if (updateRestaurantDto.capacity)
+      updateRestaurantDto.capacity = Number(updateRestaurantDto.capacity);
     return this.restaurantService.update(id, updateRestaurantDto);
   }
 
@@ -56,10 +63,5 @@ export class RestaurantController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.restaurantService.findOne(id);
-  }
-
-  @Get(':id/tables')
-  async findTables(@Param('id') id: string) {
-    return this.restaurantService.findTables(id);
   }
 }

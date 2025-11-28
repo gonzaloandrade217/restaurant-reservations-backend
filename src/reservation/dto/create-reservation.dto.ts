@@ -13,7 +13,7 @@ export class CreateReservationDto {
   restaurantId: string;
 
   @IsOptional()
-  tableId?: string; 
+  mesaId?: string;
 
   @IsOptional()
   userId?: string;

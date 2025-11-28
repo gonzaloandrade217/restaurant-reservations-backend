@@ -3,8 +3,10 @@ import {
   IsNotEmpty, 
   IsOptional, 
   IsNumber, 
-  Min 
+  Min, 
+  IsEnum 
 } from 'class-validator';
+import { MesaTipo } from '@prisma/client';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -19,15 +21,23 @@ export class CreateRestaurantDto {
   @IsNotEmpty()
   phone: string;
 
-  @IsNumber()
-  @Min(1, { message: 'La capacidad total debe ser mayor a 0' })
-  capacity: number;
+  @IsOptional()
+  @IsEnum(MesaTipo)
+  mesaTipo?: MesaTipo; 
 
   @IsNumber()
-  @Min(1, { message: 'La cantidad de mesas debe ser mayor o igual a 1' })
+  @Min(1)
+  mesaCapacidad: number;
+
+  @IsNumber()
+  @Min(1)
   cantidadMesas: number;
 
-  @IsString()
+  @IsNumber()
+  @Min(1)
+  capacity: number; 
+
   @IsOptional()
+  @IsString()
   description?: string;
 }
