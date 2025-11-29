@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
+import { ReservationStatus as PrismaReservationStatus } from '@prisma/client'; // <- usar enum de Prisma
 
 @Injectable()
 export class ReservationService {
@@ -17,14 +18,11 @@ export class ReservationService {
       data: {
         date,
         partySize: dto.partySize,
-        status: 'PENDING',
+        status: PrismaReservationStatus.PENDING,
         user: { connect: { id: userId } },
         restaurant: { connect: { id: dto.restaurantId } },
       },
-      include: {
-        user: true,
-        restaurant: true,
-      },
+      include: { user: true, restaurant: true },
     });
   }
 
@@ -33,59 +31,43 @@ export class ReservationService {
     const res = await this.prisma.reservation.findMany({
       include: { user: true, restaurant: true },
     });
-
     return res.map(r => ({ ...r, people: r.partySize }));
   }
 
-  // Obtener reservas de un usuario
   async findAllByUser(userId: string) {
     const res = await this.prisma.reservation.findMany({
       where: { userId },
       include: { restaurant: true, user: true },
     });
-
     return res.map(r => ({ ...r, people: r.partySize }));
   }
 
-  // Obtener una reserva por ID
   async findOne(id: string) {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
       include: { user: true, restaurant: true },
     });
-
-    if (!reservation) {
-      throw new NotFoundException(`Reserva con ID ${id} no encontrada`);
-    }
-
+    if (!reservation) throw new NotFoundException(`Reserva con ID ${id} no encontrada`);
     return { ...reservation, people: reservation.partySize };
   }
 
-  // Reservas pendientes para los restaurantes de un admin
   async findPendingByAdmin(adminId: string) {
     const restaurants = await this.prisma.restaurant.findMany({ where: { adminId } });
     if (restaurants.length === 0) return [];
-
     const restaurantIds = restaurants.map(r => r.id);
 
     const reservations = await this.prisma.reservation.findMany({
-      where: {
-        status: 'PENDING',
-        restaurantId: { in: restaurantIds },
-      },
+      where: { status: PrismaReservationStatus.PENDING, restaurantId: { in: restaurantIds } },
       include: { user: true, restaurant: true },
     });
-
     return reservations.map(r => ({ ...r, people: r.partySize }));
   }
 
-  // Reservas de un usuario según estado
-  async findByUserAndStatus(userId: string, status: 'ACCEPTED' | 'REJECTED') {
+  async findByUserAndStatus(userId: string, status: PrismaReservationStatus) {
     const res = await this.prisma.reservation.findMany({
       where: { userId, status },
       include: { restaurant: true, user: true },
     });
-
     return res.map(r => ({ ...r, people: r.partySize }));
   }
 
@@ -94,38 +76,31 @@ export class ReservationService {
       where: { userId },
       include: { restaurant: true, user: true },
     });
-
     return res.map(r => ({ ...r, people: r.partySize }));
   }
 
-  // Reservas aceptadas por admin
   async findAcceptedByAdmin(adminId: string) {
     const restaurants = await this.prisma.restaurant.findMany({ where: { adminId } });
     if (restaurants.length === 0) return [];
-
     const restaurantIds = restaurants.map(r => r.id);
 
     const reservations = await this.prisma.reservation.findMany({
-      where: { status: 'ACCEPTED', restaurantId: { in: restaurantIds } },
+      where: { status: PrismaReservationStatus.ACCEPTED, restaurantId: { in: restaurantIds } },
       include: { user: true, restaurant: true },
     });
-
     return reservations.map(r => ({ ...r, people: r.partySize }));
   }
 
-  // Agregar excepción (mensaje del admin)
   async addException(reservationId: string, adminId: string, message: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
 
-    // Acá se podría agregar lógica para validar la excepción según capacidad, mesas, etc.
     return this.prisma.reservation.update({
       where: { id: reservationId },
       data: { exceptionDescription: message },
     });
   }
 
-  // Actualizar reserva
   async update(id: string, updateReservationDto: UpdateReservationDto) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
@@ -136,41 +111,33 @@ export class ReservationService {
     });
   }
 
-  // Cambiar estado (aceptar/rechazar)
-  async updateStatus(id: string, status: 'ACCEPTED' | 'REJECTED') {
+  async updateStatus(id: string, status: PrismaReservationStatus) {
     const existing = await this.prisma.reservation.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Reserva no encontrada');
-    if (existing.status !== 'PENDING') throw new BadRequestException('La reserva ya fue procesada');
+    if (existing.status !== PrismaReservationStatus.PENDING) throw new BadRequestException('La reserva ya fue procesada');
 
     const updated = await this.prisma.reservation.update({
       where: { id },
       data: { status },
       include: { user: true, restaurant: true },
     });
-
     return { ...updated, people: updated.partySize };
   }
 
   async cancel(id: string) {
-    const reservation = await this.prisma.reservation.findUnique({
-      where: { id },
-    });
-
+    const reservation = await this.prisma.reservation.findUnique({ where: { id } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
-    if (reservation.status !== 'ACCEPTED') {
-      throw new Error('Solo se pueden cancelar reservas aceptadas');
-    }
+    if (reservation.status !== PrismaReservationStatus.ACCEPTED)
+      throw new BadRequestException('Solo se pueden cancelar reservas aceptadas');
 
     const updated = await this.prisma.reservation.update({
       where: { id },
-      data: { status: 'REJECTED' },
+      data: { status: PrismaReservationStatus.CANCELLED },
       include: { user: true, restaurant: true },
     });
-
     return { ...updated, people: updated.partySize };
   }
 
-  // Eliminar reserva
   async remove(id: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
