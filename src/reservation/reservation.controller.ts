@@ -106,10 +106,16 @@ export class ReservationController {
     return this.reservationService.updateStatus(id, "REJECTED");
   }
 
-  // Cancelar reserva
+  // Cancelar reserva admin
   @Patch(":id/cancel")
   async cancel(@Param("id") id: string) {
     return this.reservationService.cancel(id);
+  }
+
+  // Cancelar reserva usuario
+  @Patch(":id/cancel-user")
+  async cancelByUser(@Param("id") id: string) {
+    return this.reservationService.cancelByUser(id);
   }
 
   // Eliminar reserva

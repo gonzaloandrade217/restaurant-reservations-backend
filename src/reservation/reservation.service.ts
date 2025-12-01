@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
-import { ReservationStatus as PrismaReservationStatus } from '@prisma/client'; // <- usar enum de Prisma
+import { ReservationStatus as PrismaReservationStatus } from '@prisma/client'; 
 
 @Injectable()
 export class ReservationService {
@@ -135,6 +135,24 @@ export class ReservationService {
       data: { status: PrismaReservationStatus.CANCELLED },
       include: { user: true, restaurant: true },
     });
+    return { ...updated, people: updated.partySize };
+  }
+
+  async cancelByUser(id: string) {
+    const reservation = await this.prisma.reservation.findUnique({ where: { id } });
+    if (!reservation) throw new NotFoundException("Reserva no encontrada");
+    if (
+      reservation.status !== PrismaReservationStatus.PENDING &&
+    reservation.status !== PrismaReservationStatus.ACCEPTED
+  ){
+      throw new BadRequestException("Solo se pueden cancelar reservas pendientes o aceptadas por el usuario");
+  }
+    const updated = await this.prisma.reservation.update({
+      where: { id },
+      data: { status: PrismaReservationStatus.CANCELLED },
+      include: { user: true, restaurant: true },
+    });
+
     return { ...updated, people: updated.partySize };
   }
 
