@@ -7,6 +7,7 @@ import { GoogleUserDto } from './dto/google-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { Role, User } from '@prisma/client';
+import { userSafeSelect } from './dto/user-select';
 
 @Injectable()
 export class UserService {
@@ -18,7 +19,6 @@ export class UserService {
   // CREATE NORMAL USER
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { name, email, password, role } = createUserDto;
-
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
     try {
@@ -60,11 +60,16 @@ export class UserService {
 
   // FINDS
   findAll() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      select: userSafeSelect
+    });
   }
 
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.prisma.user.findUnique({ 
+      where: { id },
+      select: userSafeSelect 
+    });
 
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
@@ -80,24 +85,26 @@ export class UserService {
     return this.prisma.user.findMany({
       where: {
         reservations: {
-          some: {},   // Usuario con al menos 1 reserva
+          some: {}, // Usuario con al menos 1 reserva
         },
       },
       include: {
-        reservations: true,  
+        reservations: true,
       },
     });
   }
 
-  // UPDATE
+  // UPDATE 
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
     }
 
-    return this.prisma.user.update({
+    // FIX: devuelvo un usuario completo para que AuthService regenere bien el token
+    return await this.prisma.user.update({
       where: { id },
       data: updateUserDto,
+      select: userSafeSelect
     });
   }
 

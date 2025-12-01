@@ -4,7 +4,15 @@ import * as bcrypt from 'bcryptjs';
 import { UserService } from '../user/user.service';
 import { OAuth2Client } from 'google-auth-library';
 import { GoogleUserDto } from 'src/user/dto/google-user.dto';
-import { UserRole } from 'src/user/dto/create-user.dto'; // tu tipo de roles
+import { Role } from '@prisma/client';
+
+type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  avatar: string | null;
+};
 
 @Injectable()
 export class AuthService {
@@ -15,21 +23,28 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // ----------------------------
   // LOGIN NORMAL
-  // ----------------------------
-  async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.userService.findOneByEmail(email);
-
-    if (user && user.password && (await bcrypt.compare(pass, user.password))) {
-      const { password, ...result } = user;
-      return result;
+  async validateUser(email: string, pass: string): Promise<AuthUser> {
+    const existing = await this.userService.findOneByEmail(email);
+    if (!existing || !existing.password) {
+      throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    throw new UnauthorizedException('Credenciales incorrectas');
+    const isMatch = await bcrypt.compare(pass, existing.password);
+    if (!isMatch) throw new UnauthorizedException('Credenciales incorrectas');
+
+    const safeUser: AuthUser = {
+      id: existing.id,
+      email: existing.email,
+      name: existing.name,
+      role: existing.role,
+      avatar: existing.avatar,
+    };
+
+    return safeUser;
   }
 
-  async login(user: any) {
+  async login(user: AuthUser) {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
@@ -37,9 +52,7 @@ export class AuthService {
     };
   }
 
-  // ----------------------------
   // LOGIN CON GOOGLE
-  // ----------------------------
   async loginWithGoogle(idToken: string, isAdmin?: boolean) {
     const ticket = await this.googleClient.verifyIdToken({
       idToken,
@@ -51,39 +64,55 @@ export class AuthService {
 
     const email = payload.email;
     const name = payload.name ?? 'Usuario Google';
-    const picture = payload.picture ?? undefined;
+    const picture = payload.picture ?? null;
 
     if (!email) throw new UnauthorizedException('Google no devolvió email');
 
-    // Buscar usuario existente
-    let user = await this.userService.findOneByEmail(email);
+    const existing = await this.userService.findOneByEmail(email);
 
-    const desiredRole: UserRole = isAdmin ? UserRole.ADMIN : UserRole.USER;
+    const desiredRole: Role = isAdmin ? Role.ADMIN : Role.USER;
 
-    // Tipo intermedio para evitar errores de TS
-    type GoogleUserInput = {
-      email: string;
-      name: string;
-      avatar?: string;
-      role: UserRole;
-    };
-
-    if (!user) {
-      // Crear usuario Google
-      const googleUser: GoogleUserInput = {
+    if (!existing) {
+      const created = await this.userService.createGoogleUser({
         email,
         name,
         avatar: picture,
         role: desiredRole,
+      } as GoogleUserDto & { role: Role });
+
+      const safeCreated: AuthUser = {
+        id: created.id,
+        email: created.email,
+        name: created.name,
+        role: created.role,
+        avatar: created.avatar,
       };
-      user = await this.userService.createGoogleUser(googleUser as GoogleUserDto & { role: UserRole });
-    } else {
-      // Actualizar rol si es diferente
-      if (user.role !== desiredRole) {
-        user = await this.userService.update(user.id, { role: desiredRole });
-      }
+
+      return this.login(safeCreated);
     }
 
-    return this.login(user);
+    if (existing.role !== desiredRole) {
+      const updated = await this.userService.update(existing.id, { role: desiredRole });
+
+      const safeUpdated: AuthUser = {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        role: updated.role,
+        avatar: updated.avatar,
+      };
+
+      return this.login(safeUpdated);
+    }
+
+    const safeExisting: AuthUser = {
+      id: existing.id,
+      email: existing.email,
+      name: existing.name,
+      role: existing.role,
+      avatar: existing.avatar,
+    };
+
+    return this.login(safeExisting);
   }
 }

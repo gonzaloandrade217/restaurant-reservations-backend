@@ -103,9 +103,10 @@ export class RestaurantController {
   }
 
   // PUBLIC — LISTAR TODOS
+  @UseGuards(AuthGuard('jwt'))
   @Get()
-  findAll() {
-    return this.restaurantService.findAll();
+  findAll(@Req() req) {
+    return this.restaurantService.findAll(req.user);
   }
 
   // PUBLIC — OBTENER UNO

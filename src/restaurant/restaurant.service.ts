@@ -58,7 +58,17 @@ export class RestaurantService {
   }
 
   // OBTENER TODOS
-  async findAll() {
+  async findAll(user: any) {
+    if (user.role === 'ADMIN') {
+      // Admin ve solo sus restaurantes
+      return this.prisma.restaurant.findMany({
+        where: {
+          adminId: user.id,
+        },
+      });
+    }
+
+    // Usuarios normales ven todos
     return this.prisma.restaurant.findMany();
   }
 
