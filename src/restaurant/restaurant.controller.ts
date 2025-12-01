@@ -1,13 +1,15 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
-  Req 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { RestaurantService } from './restaurant.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -20,33 +22,73 @@ import { Roles, Role } from '../auth/roles.decorator';
 export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
-  // SOLO ADMIN: crear restaurante
+  // ADMIN — CREAR RESTAURANTE
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  create(@Req() req, @Body() createRestaurantDto: CreateRestaurantDto) {
+  create(@Req() req, @Body() dto: CreateRestaurantDto) {
     const adminId = req.user.id;
 
-    // Conversión de números
-    createRestaurantDto.cantidadMesas = Number(createRestaurantDto.cantidadMesas);
-    createRestaurantDto.mesaCapacidad = Number(createRestaurantDto.mesaCapacidad);
-    if (createRestaurantDto.capacity)
-      createRestaurantDto.capacity = Number(createRestaurantDto.capacity);
+    // Convertir números
+    if (dto.cantidadMesas !== undefined)
+      dto.cantidadMesas = Number(dto.cantidadMesas);
 
-    return this.restaurantService.create(createRestaurantDto, adminId);
+    if (dto.mesaCapacidad !== undefined)
+      dto.mesaCapacidad = Number(dto.mesaCapacidad);
+
+    if (dto.capacity !== undefined)
+      dto.capacity = Number(dto.capacity);
+
+    // Normalizar mesaTipo (enum)
+    if (dto.mesaTipo !== undefined && typeof dto.mesaTipo === 'string') {
+      const upper = dto.mesaTipo.toUpperCase();
+
+      const validMesaTipos = ['CUADRADA', 'RECTANGULAR', 'REDONDA'];
+      if (!validMesaTipos.includes(upper)) {
+        throw new BadRequestException(
+          `mesaTipo inválido. Debe ser ${validMesaTipos.join(', ')}`
+        );
+      }
+
+      dto.mesaTipo = upper as any;
+    }
+
+    return this.restaurantService.create(dto, adminId);
   }
 
-  // SOLO ADMIN: actualizar restaurante
+  // ADMIN — ACTUALIZAR RESTAURANTE
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  update(@Param('id') id: string, @Body() updateRestaurantDto: UpdateRestaurantDto) {
-    if (updateRestaurantDto.capacity)
-      updateRestaurantDto.capacity = Number(updateRestaurantDto.capacity);
-    return this.restaurantService.update(id, updateRestaurantDto);
+  update(@Param('id') id: string, @Body() dto: UpdateRestaurantDto) {
+    // Convertir números
+    if (dto.capacity !== undefined)
+      dto.capacity = Number(dto.capacity);
+
+    if (dto.mesaCapacidad !== undefined)
+      dto.mesaCapacidad = Number(dto.mesaCapacidad);
+
+    if (dto.cantidadMesas !== undefined)
+      dto.cantidadMesas = Number(dto.cantidadMesas);
+
+    // Normalizar mesaTipo (enum)
+    if (dto.mesaTipo !== undefined && typeof dto.mesaTipo === 'string') {
+      const upper = dto.mesaTipo.toUpperCase();
+
+      const validMesaTipos = ['CUADRADA', 'RECTANGULAR', 'REDONDA'];
+      if (!validMesaTipos.includes(upper)) {
+        throw new BadRequestException(
+          `mesaTipo inválido. Debe ser ${validMesaTipos.join(', ')}`
+        );
+      }
+
+      dto.mesaTipo = upper as any;
+    }
+
+    return this.restaurantService.update(id, dto);
   }
 
-  // SOLO ADMIN: eliminar restaurante
+  // ADMIN — ELIMINAR RESTAURANTE
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -54,12 +96,19 @@ export class RestaurantController {
     return this.restaurantService.remove(id);
   }
 
-  // RUTAS PÚBLICAS
+  // BUSQUEDA POR NOMBRE O CIUDAD
+  @Get('search')
+  search(@Query('q') q: string) {
+    return this.restaurantService.search(q);
+  }
+
+  // PUBLIC — LISTAR TODOS
   @Get()
   findAll() {
     return this.restaurantService.findAll();
   }
 
+  // PUBLIC — OBTENER UNO
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.restaurantService.findOne(id);

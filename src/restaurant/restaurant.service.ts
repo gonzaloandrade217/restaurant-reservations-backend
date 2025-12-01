@@ -18,12 +18,13 @@ export class RestaurantService {
       mesaCapacidad,
       cantidadMesas,
       capacity,
-      description
+      description,
+      city
     } = createRestaurantDto;
 
     // Validaciones
-    if (!name || !address || !phone) {
-      throw new BadRequestException('Nombre, dirección y teléfono son obligatorios');
+    if (!name || !address || !phone || !city) {
+      throw new BadRequestException('Nombre, dirección, ciudad y teléfono son obligatorios');
     }
     if (!mesaCapacidad || mesaCapacidad <= 0) {
       throw new BadRequestException('La capacidad de cada mesa debe ser mayor a 0');
@@ -49,7 +50,8 @@ export class RestaurantService {
       capacity,
       description,
       adminId,
-      mesaTipo: mesaTipoEnum ?? null, // siempre asigna
+      mesaTipo: mesaTipoEnum ?? null,
+      city
     };
 
     return this.prisma.restaurant.create({ data });
@@ -96,5 +98,19 @@ export class RestaurantService {
     await this.prisma.review.deleteMany({ where: { restaurantId: id } });
     await this.prisma.reservation.deleteMany({ where: { restaurantId: id } });
     return this.prisma.restaurant.delete({ where: { id } });
+  }
+
+  // BUSCADOR: por nombre o ciudad
+  async search(query: string) {
+    if (!query || query.trim() === "") return [];
+
+    return this.prisma.restaurant.findMany({
+      where: {
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { city: { contains: query, mode: 'insensitive' } }
+        ]
+      }
+    });
   }
 }

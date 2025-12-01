@@ -19,6 +19,10 @@ export class CreateRestaurantDto {
 
   @IsString()
   @IsNotEmpty()
+  city: string;
+
+  @IsString()
+  @IsNotEmpty()
   phone: string;
 
   @IsOptional()
