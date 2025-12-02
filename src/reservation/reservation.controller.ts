@@ -108,8 +108,14 @@ export class ReservationController {
 
   // Cancelar reserva admin
   @Patch(":id/cancel")
-  async cancel(@Param("id") id: string) {
-    return this.reservationService.cancel(id);
+  async cancel(
+    @Param("id") id: string,
+    @Body("reason") reason: string
+  ) {
+    if (!reason || reason.trim() === "") {
+      throw new BadRequestException("Debe proporcionar una razón para cancelar la reserva");
+    }
+    return this.reservationService.cancel(id, reason);
   }
 
   // Cancelar reserva usuario

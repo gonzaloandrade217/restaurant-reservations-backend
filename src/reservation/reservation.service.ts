@@ -124,7 +124,7 @@ export class ReservationService {
     return { ...updated, people: updated.partySize };
   }
 
-  async cancel(id: string) {
+  async cancel(id: string, reason: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
     if (reservation.status !== PrismaReservationStatus.ACCEPTED)
@@ -132,9 +132,13 @@ export class ReservationService {
 
     const updated = await this.prisma.reservation.update({
       where: { id },
-      data: { status: PrismaReservationStatus.CANCELLED },
+      data: {
+        status: PrismaReservationStatus.CANCELLED,
+        cancelReason: reason, 
+      },
       include: { user: true, restaurant: true },
     });
+
     return { ...updated, people: updated.partySize };
   }
 

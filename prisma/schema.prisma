@@ -63,6 +63,7 @@ model Reservation {
   date         DateTime
   partySize    Int
   status       ReservationStatus @default(PENDING)
+  cancelReason  String? 
 
   exceptionDescription String?
 
