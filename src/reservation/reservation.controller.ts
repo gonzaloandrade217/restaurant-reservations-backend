@@ -9,6 +9,7 @@ import {
   BadRequestException,
   UseGuards,
   Req,
+  Query,
 } from "@nestjs/common";
 import { CreateReservationDto } from "./dto/create-reservation.dto";
 import { ReservationService } from "./reservation.service";
@@ -77,6 +78,15 @@ export class ReservationController {
   async getAccepted(@Param("adminId") adminId: string) {
     if (!adminId || adminId === "null") throw new BadRequestException("adminId inválido");
     return this.reservationService.findAcceptedByAdmin(adminId);
+  }
+
+  // Reservas canceladas de los restaurantes de un admin
+  @Get("admin/cancelled/:adminId")
+  async getCancelled(
+    @Param("adminId") adminId: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.reservationService.findCancelledByAdmin(adminId, limit ? Number(limit) : undefined);
   }
 
   // Agregar excepción a una reserva (solo admin)

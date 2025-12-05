@@ -91,6 +91,29 @@ export class ReservationService {
     return reservations.map(r => ({ ...r, people: r.partySize }));
   }
 
+  async findCancelledByAdmin(adminId: string, limit?: number) {
+    const restaurants = await this.prisma.restaurant.findMany({
+      where: { adminId },
+    });
+
+    if (restaurants.length === 0) return [];
+
+    const restaurantIds = restaurants.map(r => r.id);
+
+    const reservations = await this.prisma.reservation.findMany({
+      where: {
+        status: PrismaReservationStatus.CANCELLED,
+        restaurantId: { in: restaurantIds },
+      },
+      include: { user: true, restaurant: true },
+      orderBy: { date: "desc" },
+      take: limit || undefined, 
+    });
+
+    return reservations.map(r => ({ ...r, people: r.partySize }));  
+  }
+
+
   async addException(reservationId: string, adminId: string, message: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
