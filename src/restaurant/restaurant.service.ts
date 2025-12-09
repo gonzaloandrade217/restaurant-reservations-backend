@@ -19,12 +19,16 @@ export class RestaurantService {
       cantidadMesas,
       capacity,
       description,
-      city
+      city,
+      latitude,
+      longitude,
     } = createRestaurantDto;
 
-    // Validaciones
+    // Validaciones básicas
     if (!name || !address || !phone || !city) {
-      throw new BadRequestException('Nombre, dirección, ciudad y teléfono son obligatorios');
+      throw new BadRequestException(
+        'Nombre, dirección, ciudad y teléfono son obligatorios'
+      );
     }
     if (!mesaCapacidad || mesaCapacidad <= 0) {
       throw new BadRequestException('La capacidad de cada mesa debe ser mayor a 0');
@@ -51,7 +55,9 @@ export class RestaurantService {
       description,
       adminId,
       mesaTipo: mesaTipoEnum ?? null,
-      city
+      city,
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
     };
 
     return this.prisma.restaurant.create({ data });
@@ -62,12 +68,9 @@ export class RestaurantService {
     if (user.role === 'ADMIN') {
       // Admin ve solo sus restaurantes
       return this.prisma.restaurant.findMany({
-        where: {
-          adminId: user.id,
-        },
+        where: { adminId: user.id },
       });
     }
-
     // Usuarios normales ven todos
     return this.prisma.restaurant.findMany();
   }
@@ -86,16 +89,11 @@ export class RestaurantService {
     if (updateRestaurantDto.mesaTipo) {
       data.mesaTipo = MesaTipo[updateRestaurantDto.mesaTipo as keyof typeof MesaTipo];
     }
-
-    if (updateRestaurantDto.capacity !== undefined) {
-      data.capacity = Number(updateRestaurantDto.capacity);
-    }
-    if (updateRestaurantDto.mesaCapacidad !== undefined) {
-      data.mesaCapacidad = Number(updateRestaurantDto.mesaCapacidad);
-    }
-    if (updateRestaurantDto.cantidadMesas !== undefined) {
-      data.cantidadMesas = Number(updateRestaurantDto.cantidadMesas);
-    }
+    ['capacity', 'mesaCapacidad', 'cantidadMesas', 'latitude', 'longitude'].forEach(
+      (key) => {
+        if (data[key] !== undefined) data[key] = Number(data[key]);
+      }
+    );
 
     return this.prisma.restaurant.update({
       where: { id },
@@ -112,15 +110,15 @@ export class RestaurantService {
 
   // BUSCADOR: por nombre o ciudad
   async search(query: string) {
-    if (!query || query.trim() === "") return [];
+    if (!query || query.trim() === '') return [];
 
     return this.prisma.restaurant.findMany({
       where: {
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
-          { city: { contains: query, mode: 'insensitive' } }
-        ]
-      }
+          { city: { contains: query, mode: 'insensitive' } },
+        ],
+      },
     });
   }
 }

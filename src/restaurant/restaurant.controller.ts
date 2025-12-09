@@ -30,26 +30,21 @@ export class RestaurantController {
     const adminId = req.user.id;
 
     // Convertir números
-    if (dto.cantidadMesas !== undefined)
-      dto.cantidadMesas = Number(dto.cantidadMesas);
-
-    if (dto.mesaCapacidad !== undefined)
-      dto.mesaCapacidad = Number(dto.mesaCapacidad);
-
-    if (dto.capacity !== undefined)
-      dto.capacity = Number(dto.capacity);
+    ['cantidadMesas', 'mesaCapacidad', 'capacity', 'latitude', 'longitude'].forEach(
+      (key) => {
+        if (dto[key] !== undefined) dto[key] = Number(dto[key]);
+      }
+    );
 
     // Normalizar mesaTipo (enum)
     if (dto.mesaTipo !== undefined && typeof dto.mesaTipo === 'string') {
       const upper = dto.mesaTipo.toUpperCase();
-
       const validMesaTipos = ['CUADRADA', 'RECTANGULAR', 'REDONDA'];
       if (!validMesaTipos.includes(upper)) {
         throw new BadRequestException(
           `mesaTipo inválido. Debe ser ${validMesaTipos.join(', ')}`
         );
       }
-
       dto.mesaTipo = upper as any;
     }
 
@@ -62,26 +57,21 @@ export class RestaurantController {
   @Roles(Role.ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateRestaurantDto) {
     // Convertir números
-    if (dto.capacity !== undefined)
-      dto.capacity = Number(dto.capacity);
-
-    if (dto.mesaCapacidad !== undefined)
-      dto.mesaCapacidad = Number(dto.mesaCapacidad);
-
-    if (dto.cantidadMesas !== undefined)
-      dto.cantidadMesas = Number(dto.cantidadMesas);
+    ['cantidadMesas', 'mesaCapacidad', 'capacity', 'latitude', 'longitude'].forEach(
+      (key) => {
+        if (dto[key] !== undefined) dto[key] = Number(dto[key]);
+      }
+    );
 
     // Normalizar mesaTipo (enum)
     if (dto.mesaTipo !== undefined && typeof dto.mesaTipo === 'string') {
       const upper = dto.mesaTipo.toUpperCase();
-
       const validMesaTipos = ['CUADRADA', 'RECTANGULAR', 'REDONDA'];
       if (!validMesaTipos.includes(upper)) {
         throw new BadRequestException(
           `mesaTipo inválido. Debe ser ${validMesaTipos.join(', ')}`
         );
       }
-
       dto.mesaTipo = upper as any;
     }
 

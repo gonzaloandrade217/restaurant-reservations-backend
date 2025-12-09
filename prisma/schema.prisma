@@ -49,7 +49,10 @@ model Restaurant {
   mesaTipo      MesaTipo?                     
   mesaCapacidad Int?                           
   cantidadMesas Int?    
-  capacity      Int?                        
+  capacity      Int?                    
+
+  latitude      Float?
+  longitude     Float?    
 
   reservations  Reservation[]
   reviews       Review[]
