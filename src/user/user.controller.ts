@@ -1,11 +1,22 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Request } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
-import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, Role } from '../auth/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
+
+interface JwtRequestUser {
+  sub: string;
+  email: string;
+  role: Role;
+}
+
+interface JwtRequest {
+  user: JwtRequestUser;
+}
 
 @Controller('users')
 export class UserController {
@@ -18,11 +29,9 @@ export class UserController {
 
   @Post('login')
   async login(@Body() dto: LoginUserDto) {
-    // Retorna token y usuario
     return this.userService.login(dto);
   }
 
-  // Solo ADMIN puede ver todos los usuarios
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -35,12 +44,20 @@ export class UserController {
     return this.userService.getUsersWithReservations();
   }
 
+  // Perfil del usuario logueado
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@Request() req: JwtRequest) {
+    // req.user viene del JwtStrategy, con tipos seguros
+    return this.userService.getProfile(req.user.sub);
+  }
+
   @Get(':id')
-  @UseGuards(AuthGuard('jwt')) // usuario logueado puede ver info
+  @UseGuards(AuthGuard('jwt'))
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
-  
+
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)

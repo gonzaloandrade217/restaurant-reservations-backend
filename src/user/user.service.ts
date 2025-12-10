@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { Role, User } from '@prisma/client';
 import { userSafeSelect } from './dto/user-select';
+import { subMonths, startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns';
 
 @Injectable()
 export class UserService {
@@ -61,14 +62,14 @@ export class UserService {
   // FINDS
   findAll() {
     return this.prisma.user.findMany({
-      select: userSafeSelect
+      select: userSafeSelect,
     });
   }
 
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({ 
+    const user = await this.prisma.user.findUnique({
       where: { id },
-      select: userSafeSelect 
+      select: userSafeSelect,
     });
 
     if (!user) {
@@ -83,42 +84,29 @@ export class UserService {
 
   async getUsersWithReservations() {
     return this.prisma.user.findMany({
-      where: {
-        reservations: {
-          some: {}, // Usuario con al menos 1 reserva
-        },
-      },
-      include: {
-        reservations: true,
-      },
+      where: { reservations: { some: {} } },
+      include: { reservations: true },
     });
   }
 
-  // UPDATE 
+  // UPDATE
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
     }
 
-    // FIX: devuelvo un usuario completo para que AuthService regenere bien el token
     return await this.prisma.user.update({
       where: { id },
       data: updateUserDto,
-      select: userSafeSelect
+      select: userSafeSelect,
     });
   }
 
   // DELETE
   async remove(id: string) {
     try {
-      await this.prisma.reservation.deleteMany({
-        where: { userId: id },
-      });
-
-      const deletedUser = await this.prisma.user.delete({
-        where: { id },
-      });
-
+      await this.prisma.reservation.deleteMany({ where: { userId: id } });
+      const deletedUser = await this.prisma.user.delete({ where: { id } });
       return deletedUser;
     } catch (error) {
       throw new Error(
@@ -129,10 +117,7 @@ export class UserService {
 
   // LOGIN NORMAL
   async login(dto: LoginUserDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user) throw new BadRequestException('Usuario no encontrado');
 
     const passwordValid = await bcrypt.compare(dto.password, user.password || '');
@@ -148,6 +133,66 @@ export class UserService {
         name: user.name,
         role: user.role,
       },
+    };
+  }
+
+  // PERFIL DEL USUARIO LOGUEADO
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        role: true,
+        reviews: {
+          select: {
+            id: true,
+            comment: true,
+            rating: true,
+            restaurant: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const reputation =
+      user.reviews.length > 0
+        ? user.reviews.reduce((acc, r) => acc + r.rating, 0) / user.reviews.length
+        : 0;
+
+    // Reservas por día del último mes
+    const start = startOfMonth(subMonths(new Date(), 1));
+    const end = endOfMonth(subMonths(new Date(), 0));
+    const days = eachDayOfInterval({ start, end });
+    const reservationsPerDay: Record<string, number> = {};
+
+    for (const day of days) {
+      const count = await this.prisma.reservation.count({
+        where: { userId, date: day },
+      });
+      reservationsPerDay[format(day, 'yyyy-MM-dd')] = count; 
+    }
+
+    const comments = user.reviews.map((r) => ({
+      id: r.id,
+      restaurantName: r.restaurant.name,
+      rating: r.rating,
+      comment: r.comment,
+    }));
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+      reputation,
+      comments,
+      reservationsLastMonth: reservationsPerDay, 
     };
   }
 }
