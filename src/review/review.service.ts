@@ -23,6 +23,14 @@ export class ReviewService {
     return review;
   }
 
+  async findByRestaurant(restaurantId: string) {
+    return this.prisma.review.findMany({
+      where: { restaurantId },
+      orderBy: { id: 'desc' }, 
+      include: { user: { select: { name: true } } },
+    });
+  }
+
   async update(id: string, updateReviewDto: UpdateReviewDto) {
     return this.prisma.review.update({ where: { id }, data: updateReviewDto });
   }

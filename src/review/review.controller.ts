@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Query } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 
@@ -12,7 +12,10 @@ export class ReviewController {
   }
 
   @Get()
-  findAll() {
+  findAll(@Query('restaurantId') restaurantId?: string) {
+    if (restaurantId) {
+      return this.reviewService.findByRestaurant(restaurantId);
+    }
     return this.reviewService.findAll();
   }
 
