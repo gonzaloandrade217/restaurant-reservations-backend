@@ -73,6 +73,13 @@ export class ReservationController {
     return this.reservationService.findByUser(userId);
   }
 
+  // Reservas completadas de un usuario
+  @Get("user/:userId/completed")
+  async getCompletedByUser(@Param("userId") userId: string) {
+    if (!userId || userId === "null") throw new BadRequestException("userId inválido");
+    return this.reservationService.findCompletedByUser(userId);
+  }
+
   // Reservas aceptadas de los restaurantes de un admin
   @Get("admin/accepted/:adminId")
   async getAccepted(@Param("adminId") adminId: string) {
@@ -139,5 +146,28 @@ export class ReservationController {
   async remove(@Param("id") id: string) {
     if (!id) throw new BadRequestException("ID de reserva inválido");
     return this.reservationService.remove(id);
+  }
+
+  // Marcar reserva como completada o no (solo admin)
+  @Patch(":id/completed")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles(Role.ADMIN)
+  async markAsCompleted(
+    @Param("id") id: string,
+    @Body("completed") completed: boolean
+  ) {
+    if (completed === undefined || completed === null) {
+      throw new BadRequestException("Debe indicar si la reserva está completada o no");
+    }
+    return this.reservationService.markAsCompleted(id, completed);
+  }
+
+  // Listar reservas filtrando por completadas o pendientes (solo admin)
+  @Get("completed/:completed")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles(Role.ADMIN)
+  async findByCompletion(@Param("completed") completed: string) {
+    const isCompleted = completed === "true";
+    return this.reservationService.findByCompletion(isCompleted);
   }
 }

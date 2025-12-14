@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -8,7 +12,13 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { Role, User } from '@prisma/client';
 import { userSafeSelect } from './dto/user-select';
-import { subMonths, startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns';
+import {
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  format,
+} from 'date-fns';
 
 @Injectable()
 export class UserService {
@@ -20,18 +30,21 @@ export class UserService {
   // CREATE NORMAL USER
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { name, email, password, role } = createUserDto;
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+
+    const hashedPassword = password
+      ? await bcrypt.hash(password, 10)
+      : '';
 
     try {
       return await this.prisma.user.create({
         data: {
           name,
           email,
-          password: hashedPassword || '',
+          password: hashedPassword,
           role: role ?? Role.USER,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'P2002') {
         throw new BadRequestException('El email ya está en uso');
       }
@@ -51,9 +64,11 @@ export class UserService {
           ...(data.avatar ? { avatar: data.avatar } : {}),
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'P2002') {
-        throw new BadRequestException('Este correo ya está registrado en otra cuenta');
+        throw new BadRequestException(
+          'Este correo ya está registrado en otra cuenta',
+        );
       }
       throw error;
     }
@@ -75,27 +90,39 @@ export class UserService {
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
+
     return user;
   }
 
   async findOneByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
   }
 
   async getUsersWithReservations() {
     return this.prisma.user.findMany({
-      where: { reservations: { some: {} } },
-      include: { reservations: true },
+      where: {
+        reservations: {
+          some: {},
+        },
+      },
+      include: {
+        reservations: true,
+      },
     });
   }
 
   // UPDATE
   async update(id: string, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+      updateUserDto.password = await bcrypt.hash(
+        updateUserDto.password,
+        10,
+      );
     }
 
-    return await this.prisma.user.update({
+    return this.prisma.user.update({
       where: { id },
       data: updateUserDto,
       select: userSafeSelect,
@@ -105,25 +132,44 @@ export class UserService {
   // DELETE
   async remove(id: string) {
     try {
-      await this.prisma.reservation.deleteMany({ where: { userId: id } });
-      const deletedUser = await this.prisma.user.delete({ where: { id } });
-      return deletedUser;
-    } catch (error) {
-      throw new Error(
-        "No se pudo eliminar el usuario. Asegúrate de que exista y de que no haya problemas con las reservas."
+      await this.prisma.reservation.deleteMany({
+        where: { userId: id },
+      });
+
+      return await this.prisma.user.delete({
+        where: { id },
+      });
+    } catch {
+      throw new BadRequestException(
+        'No se pudo eliminar el usuario. Verificá que exista y que no tenga dependencias.',
       );
     }
   }
 
   // LOGIN NORMAL
   async login(dto: LoginUserDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Usuario no encontrado');
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
 
-    const passwordValid = await bcrypt.compare(dto.password, user.password || '');
-    if (!passwordValid) throw new BadRequestException('Contraseña incorrecta');
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const passwordValid = await bcrypt.compare(
+      dto.password,
+      user.password || '',
+    );
+
+    if (!passwordValid) {
+      throw new BadRequestException('Contraseña incorrecta');
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
 
     return {
       access_token: this.jwtService.sign(payload),
@@ -138,6 +184,10 @@ export class UserService {
 
   // PERFIL DEL USUARIO LOGUEADO
   async getProfile(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User id is required');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -151,30 +201,40 @@ export class UserService {
             id: true,
             comment: true,
             rating: true,
-            restaurant: { select: { name: true } },
+            restaurant: {
+              select: { name: true },
+            },
           },
         },
       },
     });
 
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
 
     const reputation =
       user.reviews.length > 0
-        ? user.reviews.reduce((acc, r) => acc + r.rating, 0) / user.reviews.length
+        ? user.reviews.reduce((acc, r) => acc + r.rating, 0) /
+          user.reviews.length
         : 0;
 
     // Reservas por día del último mes
     const start = startOfMonth(subMonths(new Date(), 1));
-    const end = endOfMonth(subMonths(new Date(), 0));
+    const end = endOfMonth(new Date());
     const days = eachDayOfInterval({ start, end });
+
     const reservationsPerDay: Record<string, number> = {};
 
     for (const day of days) {
       const count = await this.prisma.reservation.count({
-        where: { userId, date: day },
+        where: {
+          userId,
+          date: day,
+        },
       });
-      reservationsPerDay[format(day, 'yyyy-MM-dd')] = count; 
+
+      reservationsPerDay[format(day, 'yyyy-MM-dd')] = count;
     }
 
     const comments = user.reviews.map((r) => ({
@@ -192,7 +252,7 @@ export class UserService {
       role: user.role,
       reputation,
       comments,
-      reservationsLastMonth: reservationsPerDay, 
+      reservationsLastMonth: reservationsPerDay,
     };
   }
 }

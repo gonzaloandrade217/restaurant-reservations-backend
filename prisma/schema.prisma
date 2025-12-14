@@ -17,6 +17,7 @@ enum ReservationStatus {
   ACCEPTED
   REJECTED
   CANCELLED
+  COMPLETED
 }
 
 enum MesaTipo {
@@ -67,8 +68,8 @@ model Reservation {
   partySize    Int
   status       ReservationStatus @default(PENDING)
   cancelReason  String? 
-
   exceptionDescription String?
+  completed            Boolean           @default(false)
 
   userId       String
   user         User              @relation(fields: [userId], references: [id])

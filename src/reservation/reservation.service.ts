@@ -92,27 +92,19 @@ export class ReservationService {
   }
 
   async findCancelledByAdmin(adminId: string, limit?: number) {
-    const restaurants = await this.prisma.restaurant.findMany({
-      where: { adminId },
-    });
-
+    const restaurants = await this.prisma.restaurant.findMany({ where: { adminId } });
     if (restaurants.length === 0) return [];
-
     const restaurantIds = restaurants.map(r => r.id);
 
     const reservations = await this.prisma.reservation.findMany({
-      where: {
-        status: PrismaReservationStatus.CANCELLED,
-        restaurantId: { in: restaurantIds },
-      },
+      where: { status: PrismaReservationStatus.CANCELLED, restaurantId: { in: restaurantIds } },
       include: { user: true, restaurant: true },
       orderBy: { date: "desc" },
-      take: limit || undefined, 
+      take: limit || undefined,
     });
 
-    return reservations.map(r => ({ ...r, people: r.partySize }));  
+    return reservations.map(r => ({ ...r, people: r.partySize }));
   }
-
 
   async addException(reservationId: string, adminId: string, message: string) {
     const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
@@ -155,10 +147,7 @@ export class ReservationService {
 
     const updated = await this.prisma.reservation.update({
       where: { id },
-      data: {
-        status: PrismaReservationStatus.CANCELLED,
-        cancelReason: reason, 
-      },
+      data: { status: PrismaReservationStatus.CANCELLED, cancelReason: reason },
       include: { user: true, restaurant: true },
     });
 
@@ -170,10 +159,10 @@ export class ReservationService {
     if (!reservation) throw new NotFoundException("Reserva no encontrada");
     if (
       reservation.status !== PrismaReservationStatus.PENDING &&
-    reservation.status !== PrismaReservationStatus.ACCEPTED
-  ){
+      reservation.status !== PrismaReservationStatus.ACCEPTED
+    ) {
       throw new BadRequestException("Solo se pueden cancelar reservas pendientes o aceptadas por el usuario");
-  }
+    }
     const updated = await this.prisma.reservation.update({
       where: { id },
       data: { status: PrismaReservationStatus.CANCELLED },
@@ -188,5 +177,49 @@ export class ReservationService {
     if (!reservation) throw new NotFoundException('Reserva no encontrada');
 
     return this.prisma.reservation.delete({ where: { id } });
+  }
+
+  // Marcar reserva como completada o no (solo admin)
+  async markAsCompleted(id: string, completed: boolean) {
+    const reservation = await this.prisma.reservation.findUnique({ where: { id } });
+    if (!reservation) throw new NotFoundException("Reserva no encontrada");
+
+    // Si completed = true → status = COMPLETED
+    // Si completed = false → vuelve a ACCEPTED (mantiene el flujo)
+    const newStatus = completed
+      ? PrismaReservationStatus.COMPLETED
+      : PrismaReservationStatus.ACCEPTED;
+
+    const updated = await this.prisma.reservation.update({
+      where: { id },
+      data: {
+        completed,
+        status: newStatus,
+      },
+      include: { user: true, restaurant: true },
+    });
+
+    return { ...updated, people: updated.partySize };
+  }
+
+
+  // Buscar reservas por estado de completado
+  async findByCompletion(completed: boolean) {
+    const res = await this.prisma.reservation.findMany({
+      where: { completed },
+      include: { user: true, restaurant: true },
+      orderBy: { date: 'desc' },
+    });
+    return res.map(r => ({ ...r, people: r.partySize }));
+  }
+
+  // NUEVO: Obtener reservas completadas por usuario (para gráficos)
+  async findCompletedByUser(userId: string) {
+    const res = await this.prisma.reservation.findMany({
+      where: { userId, completed: true },
+      include: { restaurant: true, user: true },
+      orderBy: { date: 'desc' },
+    });
+    return res.map(r => ({ ...r, people: r.partySize }));
   }
 }
