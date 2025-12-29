@@ -38,6 +38,18 @@ export class ReservationController {
     return this.reservationService.findAll();
   }
 
+  @Get('my')
+  @UseGuards(AuthGuard('jwt'))
+  async getMyReservations(@Req() req) {
+    const userId = req.user.id;
+
+    if (!userId) {
+      throw new BadRequestException('Usuario inválido');
+    }
+
+    return this.reservationService.findByUser(userId);
+  }
+
   // Obtener una reserva específica por ID
   @Get(":id")
   async findOne(@Param("id") id: string) {
