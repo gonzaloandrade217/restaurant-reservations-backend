@@ -27,65 +27,80 @@ enum MesaTipo {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  password     String?       // null si se logea con Google
-  name         String
-  role         Role          @default(USER)
-  avatar       String?
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String? // null si se logea con Google
+  name     String
+  role     Role    @default(USER)
+  avatar   String?
 
-  reservations Reservation[]
-  reviews      Review[]
-  restaurants  Restaurant[]  @relation("RestaurantAdmin")
+  reservations       Reservation[]
+  reviews            Review[]
+  restaurants        Restaurant[]        @relation("RestaurantAdmin")
+  hiddenReservations HiddenReservation[]
 }
 
 model Restaurant {
-  id            String        @id @default(uuid())
-  name          String
-  city          String 
-  address       String
-  phone         String
-  description   String?
+  id          String  @id @default(uuid())
+  name        String
+  city        String
+  address     String
+  phone       String
+  description String?
 
-  mesaTipo      MesaTipo?                     
-  mesaCapacidad Int?                           
-  cantidadMesas Int?    
-  capacity      Int?                    
+  mesaTipo      MesaTipo?
+  mesaCapacidad Int?
+  cantidadMesas Int?
+  capacity      Int?
 
-  latitude      Float?
-  longitude     Float?    
+  latitude  Float?
+  longitude Float?
 
-  reservations  Reservation[]
-  reviews       Review[]
+  reservations Reservation[]
+  reviews      Review[]
 
-  adminId       String?
-  admin         User?        @relation("RestaurantAdmin", fields: [adminId], references: [id])
+  adminId String?
+  admin   User?   @relation("RestaurantAdmin", fields: [adminId], references: [id])
+}
+
+model HiddenReservation {
+  id            String @id @default(uuid())
+  userId        String
+  reservationId String
+
+  user        User        @relation(fields: [userId], references: [id])
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reservationId])
 }
 
 model Reservation {
-  id           String            @id @default(uuid())
-  date         DateTime
-  partySize    Int
-  status       ReservationStatus @default(PENDING)
-  cancelReason  String? 
+  id                   String            @id @default(uuid())
+  date                 DateTime
+  partySize            Int
+  status               ReservationStatus @default(PENDING)
+  cancelReason         String?
   exceptionDescription String?
   completed            Boolean           @default(false)
 
-  userId       String
-  user         User              @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   restaurantId String
-  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id])
+  restaurant   Restaurant          @relation(fields: [restaurantId], references: [id])
+  hiddenBy     HiddenReservation[]
 }
 
 model Review {
-  id           String        @id @default(uuid())
-  rating       Int
-  comment      String?
+  id      String  @id @default(uuid())
+  rating  Int
+  comment String?
 
-  userId       String
-  user         User          @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   restaurantId String
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 }

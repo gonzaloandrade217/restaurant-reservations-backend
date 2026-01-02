@@ -255,4 +255,29 @@ export class UserService {
       reservationsLastMonth: reservationsPerDay,
     };
   }
+
+  async getHiddenReservations(userId: string): Promise<string[]> {
+  const hidden = await this.prisma.hiddenReservation.findMany({
+      where: { userId },
+      select: { reservationId: true },
+    });
+
+    return hidden.map(h => h.reservationId);
+  }
+
+  async hideReservation(userId: string, reservationId: string) {
+    return this.prisma.hiddenReservation.upsert({
+      where: {
+        userId_reservationId: {
+          userId,
+          reservationId,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        reservationId,
+      },
+    });
+  }
 }

@@ -67,4 +67,24 @@ export class UserController {
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }
+
+  // RESERVAS OCULTAS (USER)
+
+  @Get('me/hidden-reservations')
+  @UseGuards(JwtAuthGuard)
+  getHiddenReservations(@Request() req: JwtRequest) {
+    return this.userService.getHiddenReservations(req.user.sub);
+  }
+
+  @Post('me/hidden-reservations')
+  @UseGuards(JwtAuthGuard)
+  hideReservation(
+    @Request() req: JwtRequest,
+    @Body() body: { reservationId: string },
+  ) {
+    return this.userService.hideReservation(
+      req.user.sub,
+      body.reservationId,
+    );
+  }
 }
