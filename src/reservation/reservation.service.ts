@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
-import { ReservationStatus as PrismaReservationStatus } from '@prisma/client'; 
+import { ReservationStatus as PrismaReservationStatus, ReservationStatus } from '@prisma/client'; 
+import { normalizeDate } from '../common/utils/date.utils';
 
 @Injectable()
 export class ReservationService {
@@ -10,9 +11,19 @@ export class ReservationService {
 
   // Crear reserva
   async create(dto: CreateReservationDto, userId: string) {
+
+    console.log('CREATE dto.date raw =', dto.date);
+    console.log('CREATE typeof dto.date =', typeof dto.date);
+
     const date = new Date(dto.date);
-    if (isNaN(date.getTime())) throw new BadRequestException('Fecha inválida');
-    if (!dto.partySize || dto.partySize <= 0) throw new BadRequestException('Cantidad de personas inválida');
+
+    console.log('CREATE final date =', date.toISOString());
+
+    if (isNaN(date.getTime()))
+      throw new BadRequestException('Fecha inválida');
+
+    if (!dto.partySize || dto.partySize <= 0)
+      throw new BadRequestException('Cantidad de personas inválida');
 
     return this.prisma.reservation.create({
       data: {
@@ -25,6 +36,7 @@ export class ReservationService {
       include: { user: true, restaurant: true },
     });
   }
+
 
   // Obtener todas las reservas
   async findAll() {
@@ -221,5 +233,67 @@ export class ReservationService {
       orderBy: { date: 'desc' },
     });
     return res.map(r => ({ ...r, people: r.partySize }));
+  }
+
+  async acceptReservation(reservationId: string, tablesUsed: number) {
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { id: reservationId },
+      include: { restaurant: true },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reserva no encontrada');
+    }
+
+    if (reservation.status !== ReservationStatus.PENDING) {
+      throw new BadRequestException('La reserva no está pendiente');
+    }
+
+    if (!reservation.restaurant.cantidadMesas) {
+      throw new BadRequestException('El restaurante no tiene mesas configuradas');
+    }
+
+    const date = normalizeDate(reservation.date);
+
+    console.log(
+      'RAW reservation.date =',
+      reservation.date.toISOString(),
+      'NORMALIZED =',
+      date.toISOString()
+    );
+
+    const totalMesas = reservation.restaurant.cantidadMesas;
+
+    return this.prisma.$transaction(async (tx) => {
+      const dayCapacity = await tx.restaurantDayCapacity.upsert({
+        where: {
+          restaurantId_date: {
+            restaurantId: reservation.restaurantId,
+            date,
+          },
+        },
+        create: {
+          restaurantId: reservation.restaurantId,
+          date,
+          tablesUsed,
+        },
+        update: {
+          tablesUsed: {
+            increment: tablesUsed,
+          },
+        },
+      });
+
+      if (dayCapacity.tablesUsed > totalMesas) {
+        throw new BadRequestException('No hay mesas suficientes para esa fecha');
+      }
+
+      await tx.reservation.update({
+        where: { id: reservationId },
+        data: { status: ReservationStatus.ACCEPTED },
+      });
+
+      return dayCapacity;
+    });
   }
 }

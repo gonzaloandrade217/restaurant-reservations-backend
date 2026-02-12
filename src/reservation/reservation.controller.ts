@@ -16,6 +16,7 @@ import { ReservationService } from "./reservation.service";
 import { AuthGuard } from "@nestjs/passport";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles, Role } from "../auth/roles.decorator";
+import { AcceptReservationDto } from "./dto/accept-reservation.dto";
 
 @Controller("reservations")
 export class ReservationController {
@@ -48,13 +49,6 @@ export class ReservationController {
     }
 
     return this.reservationService.findByUser(userId);
-  }
-
-  // Obtener una reserva específica por ID
-  @Get(":id")
-  async findOne(@Param("id") id: string) {
-    if (!id) throw new BadRequestException("ID de reserva inválido");
-    return this.reservationService.findOne(id);
   }
 
   // Obtener reservas pendientes de los restaurantes de un admin
@@ -121,13 +115,6 @@ export class ReservationController {
     return this.reservationService.addException(id, req.user.id, body.message);
   }
 
-  // Aceptar reserva
-  @Patch(":id/accept")
-  async accept(@Param("id") id: string) {
-    if (!id) throw new BadRequestException("ID de reserva inválido");
-    return this.reservationService.updateStatus(id, "ACCEPTED");
-  }
-
   // Rechazar reserva
   @Patch(":id/reject")
   async reject(@Param("id") id: string) {
@@ -181,5 +168,29 @@ export class ReservationController {
   async findByCompletion(@Param("completed") completed: string) {
     const isCompleted = completed === "true";
     return this.reservationService.findByCompletion(isCompleted);
+  }
+
+  @Patch(':id/accept')
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles(Role.ADMIN)
+  acceptReservation(
+  @Param('id') id: string,
+  @Body() dto: AcceptReservationDto,
+  ) {
+    if (!dto.tablesUsed || dto.tablesUsed <= 0) {
+      throw new BadRequestException("Cantidad de mesas inválida");
+    }
+
+    return this.reservationService.acceptReservation(
+      id,
+      dto.tablesUsed,
+    );
+  }
+  
+  // Obtener una reserva específica por ID
+  @Get(":id")
+  async findOne(@Param("id") id: string) {
+    if (!id) throw new BadRequestException("ID de reserva inválido");
+    return this.reservationService.findOne(id);
   }
 }

@@ -104,4 +104,18 @@ export class RestaurantController {
   findOne(@Param('id') id: string) {
     return this.restaurantService.findOne(id);
   }
+
+  
+  @Get(':id/tables')
+  getTablesByDate(
+  @Param('id') restaurantId: string,
+  @Query('date') date: string,
+  ) {
+    console.log("Tables request:", {
+      restaurantId,
+      date,
+    });
+
+    return this.restaurantService.getTablesInfo(restaurantId, date);
+  }
 }

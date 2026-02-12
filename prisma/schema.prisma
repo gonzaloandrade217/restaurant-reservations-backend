@@ -61,6 +61,18 @@ model Restaurant {
 
   adminId String?
   admin   User?   @relation("RestaurantAdmin", fields: [adminId], references: [id])
+  dayCapacities RestaurantDayCapacity[]
+}
+
+model RestaurantDayCapacity {
+  id           String   @id @default(uuid())
+  restaurantId String
+  date         DateTime @db.Date
+  tablesUsed   Int
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([restaurantId, date])
 }
 
 model HiddenReservation {
@@ -78,9 +90,13 @@ model HiddenReservation {
 
 model Reservation {
   id                   String            @id @default(uuid())
-  date                 DateTime
+
+  date                 DateTime @db.Date 
+  time      String? @default("00:00")
+
   partySize            Int
   status               ReservationStatus @default(PENDING)
+  tablesUsed   Int? 
   cancelReason         String?
   exceptionDescription String?
   completed            Boolean           @default(false)

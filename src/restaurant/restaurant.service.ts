@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { MesaTipo } from '@prisma/client';
+import { normalizeDate } from '../common/utils/date.utils';
 
 @Injectable()
 export class RestaurantService {
@@ -120,5 +121,53 @@ export class RestaurantService {
         ],
       },
     });
+  }
+
+  async getTablesInfo(restaurantId: string, dateStr: string) {
+    if (!dateStr) {
+      throw new BadRequestException('Fecha requerida');
+    }
+
+    const date = normalizeDate(dateStr);
+
+    console.log(
+      'GET TABLES → restaurantId:',
+      restaurantId,
+      'date:',
+      date.toISOString()
+    );
+
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { cantidadMesas: true },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException('Restaurante no encontrado');
+    }
+
+    if (restaurant.cantidadMesas === null) {
+      throw new BadRequestException(
+        'El restaurante no tiene cantidadMesas configurada',
+      );
+    }
+
+    const dayCapacity = await this.prisma.restaurantDayCapacity.findUnique({
+      where: {
+        restaurantId_date: {
+          restaurantId,
+          date, 
+        },
+      },
+    });
+
+    const tablesUsed = dayCapacity?.tablesUsed ?? 0;
+    const totalTables = restaurant.cantidadMesas;
+
+    return {
+      totalTables,
+      tablesUsed,
+      availableTables: totalTables - tablesUsed,
+    };
   }
 }
