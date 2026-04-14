@@ -118,4 +118,11 @@ export class RestaurantController {
 
     return this.restaurantService.getTablesInfo(restaurantId, date);
   }
+
+  @Get('admin/:adminId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  findAllByAdmin(@Param('adminId') adminId: string) {
+    return this.restaurantService.findByAdmin(adminId);
+  }
 }

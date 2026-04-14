@@ -55,6 +55,7 @@ model Restaurant {
 
   latitude  Float?
   longitude Float?
+  image     String[]
 
   reservations Reservation[]
   reviews      Review[]
@@ -91,7 +92,7 @@ model HiddenReservation {
 model Reservation {
   id                   String            @id @default(uuid())
 
-  date                 DateTime @db.Date 
+  date                 DateTime 
   time      String? @default("00:00")
 
   partySize            Int

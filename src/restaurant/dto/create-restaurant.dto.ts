@@ -52,4 +52,7 @@ export class CreateRestaurantDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  images?: string[];
 }

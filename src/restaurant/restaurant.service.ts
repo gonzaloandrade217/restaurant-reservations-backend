@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { MesaTipo } from '@prisma/client';
-import { normalizeDate } from '../common/utils/date.utils';
+import { getStartOfDayUTC } from '../common/utils/date.utils';
 
 @Injectable()
 export class RestaurantService {
@@ -23,6 +23,7 @@ export class RestaurantService {
       city,
       latitude,
       longitude,
+    images,
     } = createRestaurantDto;
 
     // Validaciones básicas
@@ -59,6 +60,7 @@ export class RestaurantService {
       city,
       latitude: latitude ?? null,
       longitude: longitude ?? null,
+      images: images ?? [],
     };
 
     return this.prisma.restaurant.create({ data });
@@ -128,7 +130,7 @@ export class RestaurantService {
       throw new BadRequestException('Fecha requerida');
     }
 
-    const date = normalizeDate(dateStr);
+    const date = getStartOfDayUTC(dateStr);
 
     console.log(
       'GET TABLES → restaurantId:',
@@ -169,5 +171,13 @@ export class RestaurantService {
       tablesUsed,
       availableTables: totalTables - tablesUsed,
     };
+  }
+
+  async findByAdmin(adminId: string) {
+    return this.prisma.restaurant.findMany({
+      where: {
+        adminId: adminId, 
+      },
+    });
   }
 }
