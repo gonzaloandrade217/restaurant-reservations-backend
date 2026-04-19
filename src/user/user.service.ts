@@ -256,6 +256,15 @@ export class UserService {
     };
   }
 
+  async setAdminRating(id: string, rating: number) {
+    if (rating < 0 || rating > 5) throw new BadRequestException('El rating debe estar entre 0 y 5');
+    return this.prisma.user.update({
+      where: { id },
+      data: { adminRating: rating },
+      select: { id: true, adminRating: true },
+    });
+  }
+
   async getHiddenReservations(userId: string): Promise<string[]> {
   const hidden = await this.prisma.hiddenReservation.findMany({
       where: { userId },

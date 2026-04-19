@@ -62,6 +62,13 @@ export class UserController {
     return this.userService.update(id, updateUserDto);
   }
 
+  @Patch(':id/rating')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  setRating(@Param('id') id: string, @Body() body: { rating: number }) {
+    return this.userService.setAdminRating(id, body.rating);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   remove(@Param('id') id: string) {

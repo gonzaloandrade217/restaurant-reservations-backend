@@ -34,6 +34,7 @@ model User {
   role     Role    @default(USER)
   avatar   String?
 
+  adminRating        Float?
   reservations       Reservation[]
   reviews            Review[]
   restaurants        Restaurant[]        @relation("RestaurantAdmin")
