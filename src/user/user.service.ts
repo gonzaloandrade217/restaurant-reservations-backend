@@ -102,13 +102,23 @@ export class UserService {
 
   async getUsersWithReservations() {
     return this.prisma.user.findMany({
-      where: {
+      where: { reservations: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        avatar: true,
+        adminRating: true,
         reservations: {
-          some: {},
+          select: {
+            id: true,
+            date: true,
+            partySize: true,
+            status: true,
+            restaurantId: true,
+          },
         },
-      },
-      include: {
-        reservations: true,
       },
     });
   }

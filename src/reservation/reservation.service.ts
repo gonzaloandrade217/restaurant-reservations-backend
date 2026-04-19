@@ -13,8 +13,6 @@ export class ReservationService {
   async create(dto: CreateReservationDto, userId: string) {
   const date = parseToDate(dto.date);
 
-    console.log('CREATE final date =', date.toISOString());
-
     return this.prisma.reservation.create({
       data: {
         date, 

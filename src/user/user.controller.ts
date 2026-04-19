@@ -37,6 +37,8 @@ export class UserController {
   }
 
   @Get('with-reservations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   getUsersWithReservations() {
     return this.userService.getUsersWithReservations();
   }

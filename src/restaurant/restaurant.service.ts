@@ -149,13 +149,6 @@ export class RestaurantService {
 
     const date = getStartOfDayUTC(dateStr);
 
-    console.log(
-      'GET TABLES → restaurantId:',
-      restaurantId,
-      'date:',
-      date.toISOString()
-    );
-
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { cantidadMesas: true },

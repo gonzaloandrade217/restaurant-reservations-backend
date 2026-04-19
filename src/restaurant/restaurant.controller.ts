@@ -111,11 +111,6 @@ export class RestaurantController {
   @Param('id') restaurantId: string,
   @Query('date') date: string,
   ) {
-    console.log("Tables request:", {
-      restaurantId,
-      date,
-    });
-
     return this.restaurantService.getTablesInfo(restaurantId, date);
   }
 
