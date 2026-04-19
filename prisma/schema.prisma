@@ -55,7 +55,7 @@ model Restaurant {
 
   latitude  Float?
   longitude Float?
-  image     String[]
+  images     String[]
 
   reservations Reservation[]
   reviews      Review[]

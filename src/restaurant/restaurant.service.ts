@@ -106,8 +106,25 @@ export class RestaurantService {
 
   // ELIMINAR
   async remove(id: string) {
+    // 1. Borrar HiddenReservations ligadas a reservas de este restaurante
+    const reservations = await this.prisma.reservation.findMany({
+      where: { restaurantId: id },
+      select: { id: true },
+    });
+    const reservationIds = reservations.map(r => r.id);
+
+    if (reservationIds.length > 0) {
+      await this.prisma.hiddenReservation.deleteMany({
+        where: { reservationId: { in: reservationIds } },
+      });
+    }
+
+    // 2. Borrar reseñas, reservas y capacidades del día
     await this.prisma.review.deleteMany({ where: { restaurantId: id } });
     await this.prisma.reservation.deleteMany({ where: { restaurantId: id } });
+    await this.prisma.restaurantDayCapacity.deleteMany({ where: { restaurantId: id } });
+
+    // 3. Borrar el restaurante
     return this.prisma.restaurant.delete({ where: { id } });
   }
 

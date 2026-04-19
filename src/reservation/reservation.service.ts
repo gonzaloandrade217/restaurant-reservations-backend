@@ -146,13 +146,25 @@ export class ReservationService {
     if (reservation.status !== PrismaReservationStatus.ACCEPTED)
       throw new BadRequestException('Solo se pueden cancelar reservas aceptadas');
 
-    const updated = await this.prisma.reservation.update({
-      where: { id },
-      data: { status: PrismaReservationStatus.CANCELLED, cancelReason: reason },
-      include: { user: true, restaurant: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // Liberar las mesas usadas por esta reserva
+      const tablesToFree = reservation.tablesUsed ?? 0;
+      if (tablesToFree > 0) {
+        const dateForCapacity = getStartOfDayUTC(reservation.date);
+        await tx.restaurantDayCapacity.updateMany({
+          where: { restaurantId: reservation.restaurantId, date: dateForCapacity },
+          data: { tablesUsed: { decrement: tablesToFree } },
+        });
+      }
 
-    return { ...updated, people: updated.partySize };
+      const updated = await tx.reservation.update({
+        where: { id },
+        data: { status: PrismaReservationStatus.CANCELLED, cancelReason: reason },
+        include: { user: true, restaurant: true },
+      });
+
+      return { ...updated, people: updated.partySize };
+    });
   }
 
   async cancelByUser(id: string) {
@@ -164,13 +176,26 @@ export class ReservationService {
     ) {
       throw new BadRequestException("Solo se pueden cancelar reservas pendientes o aceptadas por el usuario");
     }
-    const updated = await this.prisma.reservation.update({
-      where: { id },
-      data: { status: PrismaReservationStatus.CANCELLED },
-      include: { user: true, restaurant: true },
-    });
 
-    return { ...updated, people: updated.partySize };
+    return this.prisma.$transaction(async (tx) => {
+      // Liberar mesas solo si la reserva estaba ACCEPTED
+      const tablesToFree = reservation.tablesUsed ?? 0;
+      if (reservation.status === PrismaReservationStatus.ACCEPTED && tablesToFree > 0) {
+        const dateForCapacity = getStartOfDayUTC(reservation.date);
+        await tx.restaurantDayCapacity.updateMany({
+          where: { restaurantId: reservation.restaurantId, date: dateForCapacity },
+          data: { tablesUsed: { decrement: tablesToFree } },
+        });
+      }
+
+      const updated = await tx.reservation.update({
+        where: { id },
+        data: { status: PrismaReservationStatus.CANCELLED },
+        include: { user: true, restaurant: true },
+      });
+
+      return { ...updated, people: updated.partySize };
+    });
   }
 
   async remove(id: string) {
@@ -274,11 +299,11 @@ export class ReservationService {
       throw new BadRequestException('No hay mesas suficientes para esa fecha');
     }
 
-    // 6. Cambiamos el estado de la reserva. 
+    // 6. Cambiamos el estado de la reserva y guardamos tablesUsed para poder liberarlas al cancelar.
     // NOTA: No pasamos el campo 'date', así la hora informativa (ej: 21:30) NO se borra.
     await tx.reservation.update({
       where: { id: reservationId },
-      data: { status: ReservationStatus.ACCEPTED },
+      data: { status: ReservationStatus.ACCEPTED, tablesUsed },
     });
 
     return dayCapacity;
