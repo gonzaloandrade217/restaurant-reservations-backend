@@ -57,6 +57,12 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  updateMe(@Request() req: any, @Body() body: { avatar?: string; name?: string }) {
+    return this.userService.update(req.user.sub, body);
+  }
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
